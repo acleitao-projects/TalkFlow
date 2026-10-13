@@ -9,6 +9,7 @@ hotkey listener and tray icon each run on their own background thread.
 from __future__ import annotations
 
 import logging
+import logging.handlers
 import threading
 
 import webview
@@ -17,6 +18,7 @@ from talkflow.asr.base import AsrAdapter
 from talkflow.asr.nemotron_sherpa_adapter import NemotronSherpaAdapter
 from talkflow.asr.whisper_http_adapter import WhisperHttpAdapter, ensure_model_downloaded
 from talkflow.capture.hotkey import HotkeyController
+from talkflow.config.paths import log_dir
 from talkflow.config.settings import Settings
 from talkflow.features.command_mode.engine import CommandModeEngine
 from talkflow.features.notetaker.capture import MeetingRecorder
@@ -33,7 +35,16 @@ from talkflow.registry import secrets as secret_store
 from talkflow.registry import store as registry_store
 from talkflow.tray.tray_icon import TrayIcon
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# Launched via pythonw.exe (startup shortcut, no console - see
+# scripts/launch_talkflow.vbs), the console-only logging below goes nowhere:
+# a log file is the only way to diagnose anything after the fact. Rotates at
+# 5MB x3 so it can't grow unbounded on a background app nobody watches.
+_log_file = logging.handlers.RotatingFileHandler(
+    log_dir() / "talkflow.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    handlers=[logging.StreamHandler(), _log_file],
+)
 logger = logging.getLogger("talkflow")
 
 
