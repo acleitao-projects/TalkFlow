@@ -1,0 +1,13 @@
+sounddevice
+soundcard
+numpy
+webrtcvad-wheels
+psutil
+httpx
+pywebview
+pywin32
+uiautomation
+pynput
+keyring
+pystray
+pytest

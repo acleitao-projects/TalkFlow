@@ -1,0 +1,478 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>TalkFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.49.0/tabler-icons.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f4ef; --card: #ffffff; --border: #e7e3d9; --border-strong: #d8d3c5;
+    --text: #1c1b17; --text-secondary: #6b6a60; --text-muted: #9a988c;
+    --accent: #1c1b17; --accent-contrast: #ffffff;
+    --danger: #b3432f; --success: #2f7d4f;
+  }
+  html, body { background: var(--bg); color: var(--text); }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  h1, h2, h3, .nav-item { font-family: 'Inter', sans-serif; }
+  .nav-item { cursor: pointer; color: var(--text-secondary); transition: background .12s ease, color .12s ease; }
+  .nav-item:hover { background: #efece3; color: var(--text); }
+  .nav-item.active { background: var(--card); color: var(--text); font-weight: 500; box-shadow: inset 0 0 0 1px var(--border); }
+  .nav-item i { font-size: 17px; width: 20px; text-align: center; }
+  input, textarea, select {
+    background: var(--card); border: 1px solid var(--border-strong); color: var(--text);
+    border-radius: 8px;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--text); }
+  input::placeholder, textarea::placeholder { color: var(--text-muted); }
+  .btn { border-radius: 8px; font-weight: 500; font-size: 13px; padding: 7px 14px; transition: opacity .12s ease; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--accent); color: var(--accent-contrast); }
+  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border-strong); }
+  .btn-danger-text { color: var(--danger); font-size: 12px; font-weight: 500; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  main, main * { overflow-wrap: anywhere; }
+  .meeting-summary h1, .meeting-summary h2, .meeting-summary h3 { font-weight: 600; margin: 10px 0 4px; color: var(--text); }
+  .meeting-summary ul { list-style: disc; padding-left: 20px; margin: 4px 0; }
+  .meeting-summary p { margin: 4px 0; }
+  .hotkey-chip {
+    font-family: ui-monospace, monospace; font-size: 12px; font-weight: 500;
+    background: #efece3; border: 1px solid var(--border-strong); border-radius: 6px;
+    padding: 4px 10px; display: inline-block; min-width: 90px; text-align: center;
+  }
+  .hotkey-chip.capturing { background: #fdf0e0; border-color: #e0a95f; color: #8a5a1f; }
+  .hotkey-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .hotkey-row:last-child { border-bottom: none; }
+  .hotkey-row > div:first-child { flex: 1; min-width: 0; }
+  .hotkey-row > .flex { flex-shrink: 0; }
+  .hotkey-row-label { font-size: 14px; font-weight: 500; }
+  .hotkey-row-sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+  .section-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .section-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
+  .list-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; }
+  .list-row + .list-row { border-top: 1px solid var(--border); }
+  .badge { font-size: 11px; font-weight: 500; color: var(--text-secondary); background: #efece3; border-radius: 999px; padding: 2px 8px; }
+</style>
+</head>
+<body class="flex h-screen overflow-hidden text-sm">
+  <nav class="w-56 shrink-0 bg-[var(--bg)] border-r border-[var(--border)] p-3 flex flex-col gap-0.5">
+    <div class="text-[15px] font-semibold px-2 py-3 flex items-center gap-2">
+      <i class="ti ti-microphone" style="font-size:18px"></i> TalkFlow
+    </div>
+    <div class="nav-item active rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="dictation"><i class="ti ti-microphone-2"></i>Dictation</div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="history"><i class="ti ti-history"></i>History</div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="style"><i class="ti ti-typography"></i>Style</div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="dictionary"><i class="ti ti-book-2"></i>Dictionary</div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="snippets"><i class="ti ti-scissors"></i>Snippets</div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="transforms"><i class="ti ti-wand"></i>Transforms</div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="command_mode"><i class="ti ti-terminal-2"></i>Command Mode</div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="notetaker"><i class="ti ti-device-tv"></i>Notetaker</div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="registry"><i class="ti ti-adjustments"></i>Model Registry</div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="settings"><i class="ti ti-settings"></i>Settings</div>
+  </nav>
+
+  <main class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-8">
+    <section id="tab-dictation">
+      <h1 class="section-title">Dictation</h1>
+      <p class="section-sub">Press your configured hotkey anywhere to dictate. The floating pill in the corner of your screen shows live status.</p>
+      <div id="dictation-settings-preview" class="card p-4 text-sm"></div>
+    </section>
+
+    <section id="tab-history" class="hidden">
+      <h1 class="section-title">History</h1>
+      <p class="section-sub">Your past dictations. Edit a transcript and save to teach the Dictionary new terms.</p>
+      <input id="history-search" placeholder="Search transcripts…" class="w-full px-3 py-2 mb-4" />
+      <div id="history-list" class="space-y-2"></div>
+    </section>
+
+    <section id="tab-style" class="hidden">
+      <h1 class="section-title">Style</h1>
+      <p class="section-sub">Formality presets, applied automatically based on which app has focus.</p>
+      <div id="preset-list" class="card divide-y divide-[var(--border)] mb-4"></div>
+      <div class="flex flex-wrap gap-2 mb-10">
+        <input id="preset-name" placeholder="Preset name" class="px-3 py-2 w-40" />
+        <input id="preset-instruction" placeholder="Instruction" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <button onclick="createPreset()" class="btn btn-primary shrink-0">Add preset</button>
+      </div>
+      <h2 class="text-[15px] font-semibold mb-1">Per-app assignment</h2>
+      <p class="section-sub" style="margin-bottom:12px">Assign a preset to a specific app by its process name.</p>
+      <div class="flex flex-wrap gap-2 mb-4">
+        <input id="app-process" placeholder="process name, e.g. slack.exe" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <select id="app-preset" class="px-3 py-2"></select>
+        <button onclick="setAppAssignment()" class="btn btn-primary shrink-0">Assign</button>
+      </div>
+      <div id="app-assignment-list" class="card divide-y divide-[var(--border)]"></div>
+    </section>
+
+    <section id="tab-dictionary" class="hidden">
+      <h1 class="section-title">Dictionary</h1>
+      <p class="section-sub">Names, jargon, and acronyms that bias speech recognition and stay consistently spelled.</p>
+      <div class="flex flex-wrap gap-2 mb-4">
+        <input id="dict-term" placeholder="name, jargon, acronym…" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <button onclick="addDictEntry()" class="btn btn-primary shrink-0">Add</button>
+      </div>
+      <div id="dict-list" class="card divide-y divide-[var(--border)]"></div>
+    </section>
+
+    <section id="tab-snippets" class="hidden">
+      <h1 class="section-title">Snippets</h1>
+      <p class="section-sub">A spoken trigger expands to saved text during dictation. A few common ones are included by default.</p>
+      <div class="flex flex-wrap gap-2 mb-4">
+        <input id="snip-trigger" placeholder="spoken trigger" class="px-3 py-2 w-40" />
+        <input id="snip-expansion" placeholder="expansion text" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <button onclick="addSnippet()" class="btn btn-primary shrink-0">Add</button>
+      </div>
+      <div id="snip-list" class="card divide-y divide-[var(--border)]"></div>
+    </section>
+
+    <section id="tab-transforms" class="hidden">
+      <h1 class="section-title">Transforms</h1>
+      <p class="section-sub">Rewrites text already in a focused field, independent of live dictation.</p>
+      <div class="card divide-y divide-[var(--border)] mb-4">
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label">Polish</div><div class="hotkey-row-sub">Fix grammar and tighten wording, keep meaning intact</div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-polish"></span><button class="btn btn-secondary" onclick="changeMainHotkey('transform_polish_hotkey','th-polish')">Change</button></div>
+        </div>
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label">Prompt Engineer</div><div class="hotkey-row-sub">Rewrite as a clear, structured AI prompt</div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-pe"></span><button class="btn btn-secondary" onclick="changeMainHotkey('transform_prompt_engineer_hotkey','th-pe')">Change</button></div>
+        </div>
+      </div>
+      <h2 class="text-[15px] font-semibold mb-1">Custom transforms</h2>
+      <p class="section-sub" style="margin-bottom:12px">Up to 8, each with its own hotkey. Restart TalkFlow after adding or removing one.</p>
+      <div id="custom-transform-list" class="card divide-y divide-[var(--border)] mb-4"></div>
+      <div class="flex flex-wrap gap-2 items-center">
+        <input id="ct-name" placeholder="name" class="px-3 py-2 w-32" />
+        <input id="ct-instruction" placeholder="instruction (what should this transform do?)" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <span class="hotkey-chip" id="ct-hotkey-display">No hotkey</span>
+        <button class="btn btn-secondary shrink-0" onclick="captureNewTransformHotkey()">Set hotkey</button>
+        <button onclick="createCustomTransform()" class="btn btn-primary shrink-0">Add</button>
+      </div>
+    </section>
+
+    <section id="tab-command_mode" class="hidden">
+      <h1 class="section-title">Command Mode</h1>
+      <p class="section-sub">Spoken instructions that edit text, draft a reply, or search — no trigger phrase, requires a focused editable field.</p>
+      <div class="card divide-y divide-[var(--border)]">
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label">Command Mode</div><div class="hotkey-row-sub">Hold, speak an instruction, release</div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-cmd"></span><button class="btn btn-secondary" onclick="changeMainHotkey('command_mode_hotkey','th-cmd')">Change</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-notetaker" class="hidden">
+      <h1 class="section-title">Notetaker</h1>
+      <p class="section-sub">Start or stop a meeting recording from the tray icon (mic + system audio). Least-tested feature — verify loopback actually captures your meeting app's audio before relying on it.</p>
+      <div id="meeting-list" class="space-y-2"></div>
+    </section>
+
+    <section id="tab-registry" class="hidden">
+      <h1 class="section-title">Model Registry</h1>
+      <p class="section-sub">Every pipeline stage's provider is swappable — nothing is hardcoded.</p>
+      <h2 class="text-[15px] font-semibold mb-2">ASR &mdash; speech to text</h2>
+      <div id="registry-asr" class="card divide-y divide-[var(--border)] mb-6"></div>
+      <h2 class="text-[15px] font-semibold mb-2">Cleanup &mdash; text to text, cloud, OpenAI-compatible</h2>
+      <div id="registry-cleanup" class="card divide-y divide-[var(--border)] mb-3"></div>
+      <div class="flex flex-wrap gap-2">
+        <input id="cleanup-base-url" placeholder="base_url e.g. https://ollama.com" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <input id="cleanup-model-id" placeholder="model id e.g. gpt-oss:120b" class="px-3 py-2 flex-1 min-w-[140px]" />
+        <input id="cleanup-api-key" placeholder="API key (stored in Windows Credential Manager)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <button onclick="saveCleanupRegistry()" class="btn btn-primary shrink-0">Save</button>
+      </div>
+    </section>
+
+    <section id="tab-settings" class="hidden">
+      <h1 class="section-title">Settings</h1>
+
+      <h2 class="text-[15px] font-semibold mb-1 mt-2">Shortcuts</h2>
+      <p class="section-sub" style="margin-bottom:8px">Click Change, then press the keys you want &mdash; no typing required.</p>
+      <div class="card divide-y divide-[var(--border)] mb-8">
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label">Dictate</div><div class="hotkey-row-sub" id="s-trigger-mode-label"></div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-dictate"></span><button class="btn btn-secondary" onclick="changeMainHotkey('hotkey','th-dictate')">Change</button></div>
+        </div>
+      </div>
+
+      <h2 class="text-[15px] font-semibold mb-3">General</h2>
+      <div class="card p-4 space-y-4 max-w-lg">
+        <label class="block">
+          <div class="font-medium mb-1">Trigger mode</div>
+          <select id="s-trigger-mode" class="w-full px-3 py-2">
+            <option value="hold">Hold to talk</option>
+            <option value="toggle">Tap twice to start, once to stop</option>
+          </select>
+        </label>
+        <label class="block">
+          <div class="font-medium mb-1">Dictation languages</div>
+          <input id="s-languages" placeholder="en, pt-BR" class="w-full px-3 py-2" />
+          <div class="hotkey-row-sub mt-1">Comma-separated. TalkFlow detects which one you spoke on every dictation.</div>
+        </label>
+        <label class="flex items-center gap-2"><input type="checkbox" id="s-retain-history" class="w-4 h-4" /> Retain history</label>
+        <label class="block">
+          <div class="flex items-center gap-2"><input type="checkbox" id="s-partial-paste" class="w-4 h-4" /> Paste while speaking</div>
+          <div class="hotkey-row-sub mt-1">Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.</div>
+        </label>
+        <button onclick="saveSettings()" class="btn btn-primary">Save</button>
+      </div>
+    </section>
+  </main>
+
+<script>
+function $(id){ return document.getElementById(id); }
+document.querySelectorAll('.nav-item').forEach(el => el.addEventListener('click', () => {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('main section').forEach(s => s.classList.add('hidden'));
+  $('tab-' + el.dataset.tab).classList.remove('hidden');
+  loadTab(el.dataset.tab);
+}));
+
+async function loadTab(tab) {
+  if (tab === 'dictation') {
+    const s = await pywebview.api.get_settings();
+    $('dictation-settings-preview').innerHTML =
+      `<div class="flex items-center gap-2 mb-1"><span class="hotkey-chip">${formatHotkeySpec(s.hotkey)}</span><span class="text-[var(--text-secondary)]">${s.trigger_mode === 'hold' ? 'hold to talk' : 'tap twice to start, once to stop'}</span></div>
+       <div class="text-[var(--text-secondary)]">Languages: ${s.language_allowlist.join(', ')}</div>`;
+  } else if (tab === 'history') { await loadHistory(); }
+  else if (tab === 'transforms') { await loadCustomTransforms(); await loadMainHotkeyChips(); }
+  else if (tab === 'style') { await loadStyle(); }
+  else if (tab === 'dictionary') { await loadDictionary(); }
+  else if (tab === 'snippets') { await loadSnippets(); }
+  else if (tab === 'notetaker') { await loadMeetings(); }
+  else if (tab === 'registry') { await loadRegistry(); }
+  else if (tab === 'command_mode') { await loadMainHotkeyChips(); }
+  else if (tab === 'settings') { await loadSettings(); }
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatHotkeySpec(spec) {
+  if (!spec) return 'Not set';
+  return spec.split('+').map(part => {
+    part = part.replace(/[<>]/g, '');
+    if (part.length === 1) return part.toUpperCase();
+    return part.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }).join(' + ');
+}
+
+// Listens for the next real key combo (ignoring bare modifier presses) and
+// converts it into our internal "<ctrl>+<shift>+d" spec format. Arrow keys
+// and a few other unsupported keys are ignored (keeps listening) rather
+// than silently capturing something broken.
+function captureNextHotkey(chipEl, onCaptured) {
+  chipEl.textContent = 'Press keys…';
+  chipEl.classList.add('capturing');
+  function handler(e) {
+    e.preventDefault();
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+    const mods = [];
+    if (e.ctrlKey) mods.push('<ctrl>');
+    if (e.altKey) mods.push('<alt>');
+    if (e.shiftKey) mods.push('<shift>');
+    if (e.metaKey) mods.push('<win>');
+    let mainPart;
+    if (/^F([1-9]|1[0-2])$/.test(e.key)) mainPart = '<f' + e.key.slice(1) + '>';
+    else if (e.key === ' ') mainPart = '<space>';
+    else if (e.key === 'CapsLock') mainPart = '<caps_lock>';
+    else if (e.key.length === 1) mainPart = e.key.toLowerCase();
+    else return; // Escape, Tab, arrows, etc. - keep listening for a usable key
+    document.removeEventListener('keydown', handler, true);
+    chipEl.classList.remove('capturing');
+    const spec = [...mods, mainPart].join('+');
+    chipEl.textContent = formatHotkeySpec(spec);
+    onCaptured(spec);
+  }
+  document.addEventListener('keydown', handler, true);
+}
+
+async function changeMainHotkey(settingsKey, chipId) {
+  const chip = $(chipId);
+  captureNextHotkey(chip, async (spec) => {
+    const current = await pywebview.api.get_settings();
+    current[settingsKey] = spec;
+    await pywebview.api.save_settings(current);
+  });
+}
+
+async function loadMainHotkeyChips() {
+  const s = await pywebview.api.get_settings();
+  if ($('th-dictate')) $('th-dictate').textContent = formatHotkeySpec(s.hotkey);
+  if ($('th-polish')) $('th-polish').textContent = formatHotkeySpec(s.transform_polish_hotkey);
+  if ($('th-pe')) $('th-pe').textContent = formatHotkeySpec(s.transform_prompt_engineer_hotkey);
+  if ($('th-cmd')) $('th-cmd').textContent = formatHotkeySpec(s.command_mode_hotkey);
+}
+
+async function loadHistory(query) {
+  const rows = query ? await pywebview.api.search_history(query, 50) : await pywebview.api.list_history(50);
+  $('history-list').innerHTML = rows.map(r => `
+    <div class="card p-3">
+      <div class="text-[var(--text-secondary)] text-xs mb-2">${(r.started_at||'').slice(0,19)} &middot; ${r.target_process_name||''} &middot; ${r.detected_language||''} &middot; ${r.applied_preset_id||''}</div>
+      <div class="flex gap-2 items-start">
+        <textarea class="flex-1 px-3 py-2" rows="2" data-session-id="${r.id}">${escapeHtml(r.cleaned_transcript||'')}</textarea>
+        <button onclick="saveHistoryCorrection('${r.id}')" class="btn btn-secondary shrink-0">Save &amp; learn</button>
+      </div>
+      <div id="learned-${r.id}" class="text-xs mt-1" style="color:var(--success)"></div>
+    </div>`).join('') || '<div class="text-[var(--text-secondary)]">No history yet.</div>';
+}
+$('history-search').addEventListener('input', e => loadHistory(e.target.value));
+
+async function saveHistoryCorrection(sessionId) {
+  const textarea = document.querySelector(`textarea[data-session-id="${sessionId}"]`);
+  const result = await pywebview.api.correct_history_entry(sessionId, textarea.value);
+  const learnedEl = $('learned-' + sessionId);
+  if (result.ok && result.learned_terms && result.learned_terms.length) {
+    learnedEl.textContent = 'Learned: ' + result.learned_terms.join(', ');
+  } else if (result.ok) {
+    learnedEl.textContent = 'Saved (no new terms detected).';
+    learnedEl.style.color = 'var(--text-secondary)';
+  } else {
+    learnedEl.textContent = 'Error: ' + (result.error || 'unknown');
+    learnedEl.style.color = 'var(--danger)';
+  }
+}
+
+let _newTransformHotkey = null;
+function captureNewTransformHotkey() {
+  captureNextHotkey($('ct-hotkey-display'), (spec) => { _newTransformHotkey = spec; });
+}
+
+async function loadCustomTransforms() {
+  const transforms = await pywebview.api.list_custom_transforms();
+  $('custom-transform-list').innerHTML = transforms.map(t =>
+    `<div class="list-row">
+      <div class="min-w-0"><div class="font-medium">${escapeHtml(t.name)}</div><div class="text-xs text-[var(--text-secondary)]">${escapeHtml(t.instruction)}</div></div>
+      <div class="flex items-center gap-2 shrink-0">${t.hotkey ? `<span class="hotkey-chip">${formatHotkeySpec(t.hotkey)}</span>` : ''}<button onclick="deleteCustomTransform('${t.id}')" class="btn-danger-text">Delete</button></div>
+    </div>`).join('') || '<div class="list-row text-[var(--text-secondary)]">No custom transforms yet.</div>';
+}
+async function createCustomTransform() {
+  if (!$('ct-name').value.trim() || !$('ct-instruction').value.trim()) return;
+  const result = await pywebview.api.create_custom_transform($('ct-name').value, $('ct-instruction').value, _newTransformHotkey);
+  if (!result.ok) { alert(result.error); return; }
+  $('ct-name').value = ''; $('ct-instruction').value = '';
+  _newTransformHotkey = null; $('ct-hotkey-display').textContent = 'No hotkey';
+  loadCustomTransforms();
+}
+async function deleteCustomTransform(id) { await pywebview.api.delete_custom_transform(id); loadCustomTransforms(); }
+
+async function loadStyle() {
+  const presets = await pywebview.api.list_presets();
+  $('preset-list').innerHTML = presets.map(p =>
+    `<div class="list-row">
+      <div><span class="font-medium">${escapeHtml(p.name)}</span> <span class="text-[var(--text-secondary)] text-xs">${escapeHtml(p.instruction)}</span></div>
+      ${p.is_builtin ? '<span class="badge">Built-in</span>' : `<button onclick="deletePreset('${p.id}')" class="btn-danger-text">Delete</button>`}
+    </div>`).join('');
+  $('app-preset').innerHTML = presets.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  const assignments = await pywebview.api.list_app_assignments();
+  $('app-assignment-list').innerHTML = Object.entries(assignments).map(([app, presetId]) =>
+    `<div class="list-row"><span>${escapeHtml(app)}</span><span class="text-[var(--text-secondary)]">&rarr; ${presets.find(p=>p.id===presetId)?.name || presetId}</span></div>`).join('')
+    || '<div class="list-row text-[var(--text-secondary)]">No per-app overrides yet (default: Normal).</div>';
+}
+async function createPreset() {
+  if (!$('preset-name').value.trim() || !$('preset-instruction').value.trim()) return;
+  await pywebview.api.create_preset($('preset-name').value, $('preset-instruction').value);
+  $('preset-name').value = ''; $('preset-instruction').value = '';
+  loadStyle();
+}
+async function deletePreset(id) { await pywebview.api.delete_preset(id); loadStyle(); }
+async function setAppAssignment() {
+  if (!$('app-process').value.trim()) return;
+  await pywebview.api.set_app_assignment($('app-process').value, $('app-preset').value);
+  $('app-process').value = '';
+  loadStyle();
+}
+
+async function loadDictionary() {
+  const entries = await pywebview.api.list_dictionary();
+  $('dict-list').innerHTML = entries.map(e =>
+    `<div class="list-row">
+      <span>${escapeHtml(e.term)} <span class="badge">${e.source}</span></span>
+      <button onclick="deleteDictEntry('${e.id}')" class="btn-danger-text">Delete</button>
+    </div>`).join('') || '<div class="list-row text-[var(--text-secondary)]">No dictionary entries yet.</div>';
+}
+async function addDictEntry() {
+  if (!$('dict-term').value.trim()) return;
+  await pywebview.api.add_dictionary_entry($('dict-term').value, 'manual');
+  $('dict-term').value = ''; loadDictionary();
+}
+async function deleteDictEntry(id) { await pywebview.api.delete_dictionary_entry(id); loadDictionary(); }
+
+async function loadSnippets() {
+  const snips = await pywebview.api.list_snippets();
+  $('snip-list').innerHTML = snips.map(s =>
+    `<div class="list-row">
+      <span><b>${escapeHtml(s.trigger)}</b> &rarr; ${escapeHtml(s.expansion)} ${s.is_builtin ? '<span class="badge">Built-in</span>' : ''}</span>
+      <button onclick="deleteSnippet('${s.id}')" class="btn-danger-text">Delete</button>
+    </div>`).join('') || '<div class="list-row text-[var(--text-secondary)]">No snippets yet.</div>';
+}
+async function addSnippet() {
+  if (!$('snip-trigger').value.trim()) return;
+  await pywebview.api.add_snippet($('snip-trigger').value, $('snip-expansion').value);
+  $('snip-trigger').value = ''; $('snip-expansion').value = ''; loadSnippets();
+}
+async function deleteSnippet(id) { await pywebview.api.delete_snippet(id); loadSnippets(); }
+
+async function loadMeetings() {
+  const meetings = await pywebview.api.list_meetings(20);
+  $('meeting-list').innerHTML = meetings.map(m =>
+    `<div class="card p-4 meeting-summary">
+      <div class="text-[var(--text-secondary)] text-xs mb-1">${(m.started_at||'').slice(0,19)}</div>
+      <div>${typeof marked !== 'undefined' ? marked.parse(m.summary || '(no summary)') : escapeHtml(m.summary||'(no summary)')}</div>
+    </div>`).join('') || '<div class="text-[var(--text-secondary)]">No meetings recorded yet.</div>';
+}
+
+async function loadRegistry() {
+  const asr = await pywebview.api.list_registry('asr');
+  $('registry-asr').innerHTML = asr.map(a =>
+    `<div class="list-row"><span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.base_url)} &middot; ${escapeHtml(a.model_id)}</span>${a.is_active ? '<span class="badge" style="color:var(--success)">Active</span>' : ''}</div>`).join('');
+  const cleanup = await pywebview.api.list_registry('cleanup');
+  $('registry-cleanup').innerHTML = cleanup.map(a =>
+    `<div class="list-row"><span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.base_url)} &middot; ${escapeHtml(a.model_id)}</span>${a.is_active ? '<span class="badge" style="color:var(--success)">Active</span>' : ''}</div>`).join('');
+  if (cleanup[0]) { $('cleanup-base-url').value = cleanup[0].base_url; $('cleanup-model-id').value = cleanup[0].model_id; }
+}
+async function saveCleanupRegistry() {
+  const existing = (await pywebview.api.list_registry('cleanup'))[0];
+  await pywebview.api.upsert_registry({
+    id: existing ? existing.id : null, stage: 'cleanup', name: 'Ollama Cloud',
+    provider: 'ollama-cloud', base_url: $('cleanup-base-url').value,
+    model_id: $('cleanup-model-id').value, api_key_ref: 'cleanup_ollama_cloud', is_active: true,
+  }, $('cleanup-api-key').value || null);
+  $('cleanup-api-key').value = '';
+  loadRegistry();
+}
+
+async function loadSettings() {
+  const s = await pywebview.api.get_settings();
+  $('s-trigger-mode').value = s.trigger_mode;
+  $('s-trigger-mode-label').textContent = s.trigger_mode === 'hold' ? 'Hold to talk' : 'Tap twice to start, once to stop';
+  $('th-dictate').textContent = formatHotkeySpec(s.hotkey);
+  $('s-languages').value = s.language_allowlist.join(', ');
+  $('s-retain-history').checked = s.retain_history;
+  $('s-partial-paste').checked = s.partial_paste;
+}
+async function saveSettings() {
+  const current = await pywebview.api.get_settings();
+  await pywebview.api.save_settings({
+    ...current,
+    trigger_mode: $('s-trigger-mode').value,
+    language_allowlist: $('s-languages').value.split(',').map(s => s.trim()).filter(Boolean),
+    retain_history: $('s-retain-history').checked,
+    partial_paste: $('s-partial-paste').checked,
+  });
+  loadSettings();
+}
+$('s-trigger-mode').addEventListener('change', () => {
+  $('s-trigger-mode-label').textContent = $('s-trigger-mode').value === 'hold' ? 'Hold to talk' : 'Tap twice to start, once to stop';
+});
+
+loadTab('dictation');
+</script>
+</body>
+</html>

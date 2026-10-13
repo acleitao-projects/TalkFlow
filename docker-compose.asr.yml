@@ -1,0 +1,22 @@
+name: talkflow-asr
+services:
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:latest-cuda
+    container_name: talkflow-asr
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - speaches-hf-cache:/home/ubuntu/.cache/huggingface/hub
+    gpus: all
+    environment:
+      # Keep the model loaded (default unloads after 300s idle, making the
+      # first dictation after a pause pay a multi-second reload).
+      WHISPER__TTL: "-1"
+    # GTX 1650 has only 4GB VRAM - keep the default/active model small
+    # (tiny or base). Model is selected per-request via the "model" field
+    # in the /v1/audio/transcriptions call, e.g. "Systran/faster-whisper-base",
+    # so no rebuild is needed to change it - see talkflow/asr config.
+
+volumes:
+  speaches-hf-cache:
