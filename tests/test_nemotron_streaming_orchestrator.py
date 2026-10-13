@@ -1,5 +1,5 @@
 """Frame-level streaming path: an ASR adapter with capabilities.frame_level
-True (the real one is NemotronRivaAdapter) should get every captured frame
+True (the real one is NemotronSherpaAdapter) should get every captured frame
 fed to it directly - no VAD batching, no segment worker, no transcribe_pcm()
 - and its finalize() result should drive cleanup+paste exactly like the
 default (non-partial) path. Everything external is faked; no gRPC/network
@@ -142,7 +142,7 @@ def test_stop_calls_finalize_and_cleans_once(harness):
     orch.stop()
     assert asr.finalize_calls == 1
     assert llm.calls == ["hello world"]
-    assert insertion.inserted == ["Hello world."]
+    assert insertion.inserted == ["Hello world. "]
 
 
 def test_cancel_still_ends_the_stream(harness):

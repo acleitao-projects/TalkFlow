@@ -259,7 +259,7 @@ def test_single_pass_path_when_partial_paste_is_off(harness):
     assert insertion.inserted == []
     orch.stop()
     assert asr.calls == [] and asr.finalize_calls == 1
-    assert insertion.inserted == ["Everything."]
+    assert insertion.inserted == ["Everything. "]
 
 
 def test_incremental_asr_transcribes_while_recording_but_cleans_and_pastes_once(harness):
@@ -280,7 +280,7 @@ def test_incremental_asr_transcribes_while_recording_but_cleans_and_pastes_once(
     # One cleanup call sees the whole dictation, one paste.
     assert [c["raw"] for c in llm.calls] == ["one two three"]
     assert llm.calls[0]["previous_text"] is None
-    assert insertion.inserted == ["One two three."]
+    assert insertion.inserted == ["One two three. "]
     assert states[-1] == SessionState.COMPLETE
 
     from talkflow.history import repository as repo

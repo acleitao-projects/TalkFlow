@@ -1,6 +1,16 @@
 """Microphone capture via sounddevice, 16kHz mono 16-bit PCM (Whisper/webrtcvad
 native rate). Runs a background InputStream and exposes a simple
 start()/stop()/cancel() API plus a callback invoked with each VAD frame.
+
+The underlying sd.InputStream is opened once and kept running across
+dictations (see `_ensure_stream()`), not reopened per start()/stop() cycle.
+Opening a fresh audio device has real startup latency - noticeably so for a
+USB audio interface (RODECaster Pro II) - and reopening it on every single
+dictation meant the first word or so, spoken the instant the hotkey went
+down, could be lost before the stream finished negotiating. Keeping it warm
+and gating capture with an Event instead removes that latency entirely: a
+single AudioRecorder instance must be reused across dictations (the
+orchestrator does this), not constructed fresh each time, for this to help.
 """
 from __future__ import annotations
 
@@ -24,16 +34,17 @@ class AudioRecorder:
         self._leftover = b""
         self._worker: threading.Thread | None = None
         self._running = False
+        self._capturing = threading.Event()  # gates whether callback frames are queued
         self._on_frame: OnFrame | None = None
         self._all_pcm = bytearray()
 
-    def start(self, on_frame: OnFrame) -> None:
-        self._on_frame = on_frame
-        self._all_pcm = bytearray()
-        self._leftover = b""
-        self._running = True
+    def _ensure_stream(self) -> None:
+        if self._stream is not None:
+            return
 
         def _callback(indata, frames, time_info, status):
+            if not self._capturing.is_set():
+                return
             pcm16 = (indata[:, 0] * 32767).astype(np.int16).tobytes()
             self._q.put(pcm16)
 
@@ -42,6 +53,23 @@ class AudioRecorder:
             device=self.device_id, callback=_callback, blocksize=int(SAMPLE_RATE * 0.03),
         )
         self._stream.start()
+
+    def start(self, on_frame: OnFrame) -> None:
+        self._ensure_stream()
+        self._on_frame = on_frame
+        self._all_pcm = bytearray()
+        self._leftover = b""
+        # Drop anything queued from before this dictation (the callback runs
+        # continuously once the stream is warm, even while not capturing -
+        # see _capturing - but nothing should have been queued during that
+        # window; this is just a defensive clear).
+        while True:
+            try:
+                self._q.get_nowait()
+            except queue.Empty:
+                break
+        self._running = True
+        self._capturing.set()
         self._worker = threading.Thread(target=self._drain_loop, daemon=True)
         self._worker.start()
 
@@ -61,11 +89,8 @@ class AudioRecorder:
             self._leftover = buf[n_frames * FRAME_BYTES:]
 
     def stop(self) -> bytes:
+        self._capturing.clear()
         self._running = False
-        if self._stream:
-            self._stream.stop()
-            self._stream.close()
-            self._stream = None
         if self._worker:
             self._worker.join(timeout=2)
         # The drain thread exits as soon as _running flips, which can leave
@@ -79,3 +104,14 @@ class AudioRecorder:
 
     def cancel(self) -> None:
         self.stop()
+
+    def close(self) -> None:
+        """Actually tear down the hardware stream - only call this when the
+        recorder is being discarded for good (e.g. switching input devices),
+        not between ordinary dictations."""
+        self._capturing.clear()
+        self._running = False
+        if self._stream:
+            self._stream.stop()
+            self._stream.close()
+            self._stream = None

@@ -204,7 +204,14 @@ class Orchestrator:
         else:
             self._vad = ChunkBoundaryDetector()
 
-        self._recorder = AudioRecorder(device_id=self.input_device_id)
+        if self._recorder is None:
+            # One AudioRecorder instance for the orchestrator's whole
+            # lifetime, not a fresh one per dictation: it keeps its hardware
+            # stream warm across start()/stop() cycles (see
+            # talkflow/capture/recorder.py) so the mic doesn't pay a fresh
+            # device-open latency - and risk losing the first spoken word to
+            # it - on every single dictation.
+            self._recorder = AudioRecorder(device_id=self.input_device_id)
         self._session.state = SessionState.RECORDING
         self._emit()
         self._recorder.start(on_frame=self._on_frame)
@@ -385,7 +392,11 @@ class Orchestrator:
         self._session.state = SessionState.INSERTING
         self._emit()
         t2 = time.monotonic()
-        outcome = self.insertion.insert(cleaned)
+        # Trailing space: two separate dictations pasted back-to-back at the
+        # same cursor position (no manual space typed in between) otherwise
+        # run together, e.g. "...this version" + "Now we'll..." -> "...this
+        # versionNow we'll...".
+        outcome = self.insertion.insert(cleaned + " ")
         run.after_stop["paste_ms"] = round((time.monotonic() - t2) * 1000)
         if not outcome.success:
             run.error = ("insertion_failed", outcome.error or "insertion failed")
@@ -479,7 +490,10 @@ class Orchestrator:
         return TAIL_GRACE_S
 
     def stop(self) -> None:
-        if not self._recorder or not self._session:
+        # self._recorder now persists across dictations (see start()) to
+        # keep its hardware stream warm, so its mere existence no longer
+        # means "currently recording" - check session state instead.
+        if not self._recorder or not self._session or self._session.state != SessionState.RECORDING:
             return
         t_stop = time.monotonic()
         self._session.state = SessionState.STOPPING
@@ -492,7 +506,6 @@ class Orchestrator:
             time.sleep(grace)
         t_rec = time.monotonic()
         full_pcm = self._recorder.stop()
-        self._recorder = None
         if self._run is not None:
             self._run.after_stop["grace_ms"] = round(grace * 1000)
             self._run.after_stop["recorder_stop_ms"] = round((time.monotonic() - t_rec) * 1000)
@@ -501,6 +514,10 @@ class Orchestrator:
         if _is_silent(full_pcm):
             # Whisper hallucinates text ("You", "Thanks for watching") on
             # silence, so don't even send it.
+            import numpy as np
+            peak = int(np.abs(np.frombuffer(full_pcm, dtype=np.int16)).max()) if full_pcm else 0
+            logger.info("no_speech: pre-ASR silence check (peak=%d, bytes=%d, frame_level=%s)",
+                        peak, len(full_pcm), self._frame_level)
             self._end_frame_level_stream()
             self._session.raw_transcript = ""
             self._session.finish(SessionState.CANCELLED)
@@ -526,6 +543,8 @@ class Orchestrator:
         self._session.detected_language_confidence = final.detected_language_confidence
 
         if not final.text.strip():
+            logger.info("no_speech: ASR finalize() returned empty text (asr_ms=%.0f, detected_language=%r)",
+                        asr_ms, final.detected_language)
             self._session.finish(SessionState.CANCELLED)
             self._session.error_code = "no_speech"
             save_session(self._session)
@@ -564,11 +583,14 @@ class Orchestrator:
 
         llm_ms = (time.monotonic() - t_llm) * 1000
         self._session.cleaned_transcript = result.cleaned_text
+        logger.info("dictation content: detected_language=%r raw=%r cleaned=%r",
+                    self._session.detected_language, final.text, result.cleaned_text)
 
         self._session.state = SessionState.INSERTING
         self._emit()
         t_insert = time.monotonic()
-        outcome = self.insertion.insert(result.cleaned_text)
+        # Trailing space: see the identical comment in _clean_and_paste_whole().
+        outcome = self.insertion.insert(result.cleaned_text + " ")
         logger.info(
             "dictation timing: audio_s=%.1f grace_ms=%.0f asr_ms=%.0f llm_ms=%.0f insert_ms=%.0f stop_to_done_ms=%.0f",
             len(full_pcm) / 32000, grace * 1000, asr_ms, llm_ms,
@@ -594,9 +616,8 @@ class Orchestrator:
             threading.Thread(target=self.asr.finalize, daemon=True).start()
 
     def cancel(self) -> None:
-        if self._recorder:
+        if self._recorder and self._session and self._session.state == SessionState.RECORDING:
             self._recorder.cancel()
-            self._recorder = None
         self._end_frame_level_stream()
         run, self._run = self._run, None
         if run is not None:

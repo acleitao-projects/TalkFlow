@@ -94,7 +94,7 @@ def test_full_pipeline_mocked_network_real_adapters(tmp_db, monkeypatch):
     orchestrator.start(trigger_mode="hold")
     orchestrator.stop()
 
-    assert insertion.inserted_text == "We should ship it."
+    assert insertion.inserted_text == "We should ship it. "
     assert SessionState.COMPLETE in captured_states
 
     from talkflow.history import repository as repo

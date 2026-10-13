@@ -11,4 +11,5 @@ pynput
 keyring
 pystray
 pytest
-nvidia-riva-client
+sherpa-onnx
+langdetect

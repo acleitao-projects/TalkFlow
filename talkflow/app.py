@@ -14,7 +14,7 @@ import threading
 import webview
 
 from talkflow.asr.base import AsrAdapter
-from talkflow.asr.nemotron_riva_adapter import NemotronRivaAdapter
+from talkflow.asr.nemotron_sherpa_adapter import NemotronSherpaAdapter
 from talkflow.asr.whisper_http_adapter import WhisperHttpAdapter, ensure_model_downloaded
 from talkflow.capture.hotkey import HotkeyController
 from talkflow.config.settings import Settings
@@ -52,11 +52,10 @@ def build_asr_adapter() -> AsrAdapter:
     if asr_assignment is None:
         raise RuntimeError("Model registry missing active asr assignment")
     if asr_assignment.provider == "nemotron-local":
-        # gRPC, not HTTP - nothing to "ensure downloaded" here; the GGUF is a
-        # bind-mounted file the container either has or doesn't (see
-        # docker-compose.nemotron.yml). A dead/unreachable server surfaces as
-        # a normal feed_chunk()/finalize() exception during dictation instead.
-        return NemotronRivaAdapter(uri=asr_assignment.base_url)
+        # In-process (sherpa-onnx, no container/network) - base_url holds the
+        # extracted model directory, not an address. A missing/corrupt model
+        # directory surfaces as a normal exception from the constructor.
+        return NemotronSherpaAdapter(model_dir=asr_assignment.base_url)
     if asr_assignment.provider == "local-docker":
         try:
             ensure_model_downloaded(asr_assignment.base_url, asr_assignment.model_id)

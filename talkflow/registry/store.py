@@ -67,14 +67,20 @@ def _row_to_assignment(row) -> ModelAssignment:
     )
 
 
+SHERPA_NEMOTRON_MODEL_DIR = "models/sherpa-nemotron/sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-160ms-int8-2026-06-11"
+
+
 def ensure_defaults() -> None:
     """Seed default registry rows if none exist yet for a stage: local
-    Nemotron 3.5 streaming ASR (nemo-speech.cpp, see docker-compose.nemotron.yml)
-    and local Ollama/Gemma 3 1B for cleanup. Safe to call repeatedly."""
+    Nemotron 3.5 streaming ASR, in-process via sherpa-onnx (see
+    talkflow/asr/nemotron_sherpa_adapter.py for why - not NVIDIA's own
+    nemo-speech.cpp container, which turned out not to work on this
+    hardware), and local Ollama/Gemma 3 1B for cleanup. Safe to call
+    repeatedly."""
     if not list_for_stage("asr"):
         upsert(ModelAssignment(
-            id=None, stage="asr", name="Local (Docker/Nemotron 3.5 streaming)", provider="nemotron-local",
-            base_url="127.0.0.1:50051", model_id="nemotron-3.5-asr-streaming-0.6b",
+            id=None, stage="asr", name="Local (sherpa-onnx, Nemotron 3.5 streaming)", provider="nemotron-local",
+            base_url=SHERPA_NEMOTRON_MODEL_DIR, model_id="nemotron-3.5-asr-streaming-0.6b",
             api_key_ref=None, is_active=True,
         ))
     if not list_for_stage("cleanup"):
