@@ -68,23 +68,21 @@ def _row_to_assignment(row) -> ModelAssignment:
 
 
 def ensure_defaults() -> None:
-    """Seed default registry rows if none exist yet for a stage: local Docker
-    ASR (speaches) and Ollama Cloud for cleanup. Safe to call repeatedly."""
+    """Seed default registry rows if none exist yet for a stage: local
+    Nemotron 3.5 streaming ASR (nemo-speech.cpp, see docker-compose.nemotron.yml)
+    and local Ollama/Gemma 3 1B for cleanup. Safe to call repeatedly."""
     if not list_for_stage("asr"):
         upsert(ModelAssignment(
-            id=None, stage="asr", name="Local (Docker/speaches)", provider="local-docker",
-            base_url="http://localhost:8000", model_id="Systran/faster-whisper-base",
+            id=None, stage="asr", name="Local (Docker/Nemotron 3.5 streaming)", provider="nemotron-local",
+            base_url="127.0.0.1:50051", model_id="nemotron-3.5-asr-streaming-0.6b",
             api_key_ref=None, is_active=True,
         ))
     if not list_for_stage("cleanup"):
-        # Ollama Cloud's OpenAI-compatible base is https://ollama.com/v1, and
-        # the adapter appends "/v1/chat/completions" itself, so base_url is
-        # "https://ollama.com" (no /v1 suffix here). Cloud model names use a
-        # ":cloud" suffix (e.g. "qwen3.5:cloud") and the catalog changes over
-        # time - PLACEHOLDER model_id below; set the real one for your
-        # account via the registry UI/CLI before first use.
+        # Local Ollama (docker-compose.nemotron.yml's ollama-local service),
+        # no API key needed. Any OpenAI-compatible host still works by
+        # changing base_url/model_id/api_key here - this is just the default.
         upsert(ModelAssignment(
-            id=None, stage="cleanup", name="Ollama Cloud", provider="ollama-cloud",
-            base_url="https://ollama.com", model_id="REPLACE_WITH_YOUR_OLLAMA_CLOUD_MODEL:cloud",
-            api_key_ref="cleanup_ollama_cloud", is_active=True,
+            id=None, stage="cleanup", name="Local (Docker/Ollama, Gemma 3 1B)", provider="ollama-local",
+            base_url="http://localhost:11434", model_id="gemma3:1b",
+            api_key_ref=None, is_active=True,
         ))

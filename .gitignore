@@ -1,5 +1,7 @@
 .venv/
 *.key
+models/
+*.gguf
 .env
 __pycache__/
 *.pyc

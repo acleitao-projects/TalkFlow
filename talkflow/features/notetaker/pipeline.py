@@ -12,7 +12,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from talkflow.asr.whisper_http_adapter import WhisperHttpAdapter
+from talkflow.asr.base import AsrAdapter
 from talkflow.history.db import connect
 from talkflow.llm.base import LlmAdapter
 
@@ -34,7 +34,7 @@ class NotetakerResult:
     summary: str
 
 
-def process_meeting(pcm: bytes, asr: WhisperHttpAdapter, llm: LlmAdapter) -> NotetakerResult:
+def process_meeting(pcm: bytes, asr: AsrAdapter, llm: LlmAdapter) -> NotetakerResult:
     session_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc).isoformat()
 

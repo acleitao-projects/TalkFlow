@@ -13,6 +13,8 @@ import threading
 
 import webview
 
+from talkflow.asr.base import AsrAdapter
+from talkflow.asr.nemotron_riva_adapter import NemotronRivaAdapter
 from talkflow.asr.whisper_http_adapter import WhisperHttpAdapter, ensure_model_downloaded
 from talkflow.capture.hotkey import HotkeyController
 from talkflow.config.settings import Settings
@@ -45,10 +47,16 @@ def format_hotkey_spec(spec: str) -> str:
     return "+".join(parts)
 
 
-def build_asr_adapter() -> WhisperHttpAdapter:
+def build_asr_adapter() -> AsrAdapter:
     asr_assignment = registry_store.get_active("asr")
     if asr_assignment is None:
         raise RuntimeError("Model registry missing active asr assignment")
+    if asr_assignment.provider == "nemotron-local":
+        # gRPC, not HTTP - nothing to "ensure downloaded" here; the GGUF is a
+        # bind-mounted file the container either has or doesn't (see
+        # docker-compose.nemotron.yml). A dead/unreachable server surfaces as
+        # a normal feed_chunk()/finalize() exception during dictation instead.
+        return NemotronRivaAdapter(uri=asr_assignment.base_url)
     if asr_assignment.provider == "local-docker":
         try:
             ensure_model_downloaded(asr_assignment.base_url, asr_assignment.model_id)
@@ -137,11 +145,28 @@ def main() -> None:
             # Load the ASR model into GPU memory now (first request after a
             # cold container can take ~10s) with half a second of silence.
             orch.asr.start_session(["en"])
-            orch.asr.set_full_audio(bytes(16000), 16000)
+            if hasattr(orch.asr, "set_full_audio"):
+                orch.asr.set_full_audio(bytes(16000), 16000)
+            else:
+                orch.asr.feed_chunk(bytes(16000), 16000)
             orch.asr.finalize()
         except Exception:
             logger.exception("Orchestrator pre-warm failed")
     threading.Thread(target=_prewarm, daemon=True).start()
+
+    def _prewarm_llm() -> None:
+        # A local model's FIRST completion call pays for mapping the weights
+        # into VRAM on top of normal inference - measured ~99s for Gemma 3 1B
+        # on this GPU (vs. ~2.5s once warm). warm()'s HEAD request alone
+        # doesn't trigger that load; only a real completion does.
+        try:
+            shared_llm.cleanup(
+                raw_transcript="warm up", language="en", formality_name="Normal",
+                formality_instruction="Clear, neutral, professional.", target_process_name=None,
+            )
+        except Exception:
+            logger.exception("LLM pre-warm failed")
+    threading.Thread(target=_prewarm_llm, daemon=True).start()
 
     busy = {"processing": False}
 

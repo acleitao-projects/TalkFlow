@@ -134,6 +134,7 @@ class Orchestrator:
         self._recorder: AudioRecorder | None = None
         self._vad: ChunkBoundaryDetector | None = None
         self._pending_frames: list[bytes] = []
+        self._frame_level = False
         self._session: DictationSession | None = None
         self._run: _PartialRun | None = None
         self._seg_frames: list[bytes] = []
@@ -185,7 +186,14 @@ class Orchestrator:
         self._warm_connections()
 
         self._run = None
-        if (self.partial_paste or self.incremental_asr) and hasattr(self.asr, "transcribe_pcm"):
+        self._frame_level = bool(getattr(getattr(self.asr, "capabilities", None), "frame_level", False))
+        if self._frame_level:
+            # The ASR stream itself is the "incremental" layer here - no VAD
+            # batching, no segment worker, no stateless transcribe_pcm() to
+            # fall back on. _on_frame() feeds every captured frame straight
+            # to the adapter; finalize() at stop() reconciles the transcript.
+            self._vad = None
+        elif (self.partial_paste or self.incremental_asr) and hasattr(self.asr, "transcribe_pcm"):
             self._vad = ChunkBoundaryDetector(silence_ms_for_boundary=SEGMENT_PAUSE_MS)
             self._seg_frames = []
             self._seg_speech_frames = 0
@@ -209,6 +217,16 @@ class Orchestrator:
                 threading.Thread(target=warm, daemon=True).start()
 
     def _on_frame(self, frame: bytes) -> None:
+        if self._frame_level:
+            try:
+                partial = self.asr.feed_chunk(frame, sample_rate=16000)
+            except Exception:
+                logger.exception("streaming ASR feed_chunk failed")
+                return
+            if partial is not None and self._session:
+                self._session.raw_transcript = partial.text
+                self._emit()
+            return
         if self._run is not None:
             self._on_frame_partial(frame, self._run)
             return
@@ -483,6 +501,7 @@ class Orchestrator:
         if _is_silent(full_pcm):
             # Whisper hallucinates text ("You", "Thanks for watching") on
             # silence, so don't even send it.
+            self._end_frame_level_stream()
             self._session.raw_transcript = ""
             self._session.finish(SessionState.CANCELLED)
             self._session.error_code = "no_speech"
@@ -565,10 +584,20 @@ class Orchestrator:
         save_session(self._session)
         self._emit()
 
+    def _end_frame_level_stream(self) -> None:
+        """Signal end-of-stream to a frame_level adapter without blocking the
+        caller on finalize()'s network round-trip; the result is discarded
+        (used when the dictation never reaches the normal finalize() call,
+        e.g. silence or cancel), but the sentinel still has to be sent so the
+        adapter's background stream thread isn't left waiting forever."""
+        if self._frame_level:
+            threading.Thread(target=self.asr.finalize, daemon=True).start()
+
     def cancel(self) -> None:
         if self._recorder:
             self._recorder.cancel()
             self._recorder = None
+        self._end_frame_level_stream()
         run, self._run = self._run, None
         if run is not None:
             # Pieces already pasted stay in the field; nothing more is pasted.

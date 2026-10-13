@@ -8,6 +8,11 @@ from dataclasses import dataclass
 class AsrCapabilities:
     streaming: bool
     supported_languages: list[str] | None  # None = provider-defined, not restricted here
+    # True for adapters with a persistent streaming session where feed_chunk()
+    # should be called on every captured frame directly (no VAD batching first)
+    # and finalize() has no need for set_full_audio()/transcribe_pcm(). False
+    # (default) is the existing "batch HTTP, rolling re-transcription" shape.
+    frame_level: bool = False
 
 
 @dataclass

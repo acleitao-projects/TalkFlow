@@ -1,7 +1,7 @@
-"""Generic /v1/chat/completions client. Works against Ollama Cloud (default),
-OpenAI, Azure OpenAI, or any other OpenAI-compatible host - base_url/model_id/
-api_key come from the model registry, never hardcoded. This stage is always
-cloud/network-reachable; there is no offline fallback (see CLAUDE.md).
+"""Generic /v1/chat/completions client. Works against a local Ollama (default,
+see docker-compose.nemotron.yml - Gemma 3 1B, no api_key needed), Ollama
+Cloud, OpenAI, Azure OpenAI, or any other OpenAI-compatible host -
+base_url/model_id/api_key come from the model registry, never hardcoded.
 """
 from __future__ import annotations
 
