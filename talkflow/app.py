@@ -118,7 +118,7 @@ def build_orchestrator(overlay: OverlayWindow, llm: OpenAiCompatibleAdapter, ins
     return Orchestrator(
         asr=asr, llm=llm, insertion=insertion,
         allowed_languages=settings.language_allowlist,
-        input_device_id=None,
+        input_device_id=int(settings.input_device_id) if settings.input_device_id else None,
         on_state_change=on_state_change,
         partial_paste=settings.partial_paste_allowed(),
         incremental_asr=True,

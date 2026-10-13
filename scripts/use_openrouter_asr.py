@@ -1,7 +1,15 @@
 """One-shot setup: store your OpenRouter API key in Windows Credential Manager,
-verify a real transcription request works (and time it), then make OpenRouter
-Whisper Large V3 Turbo the active ASR stage. The local Docker entry stays in
-the registry as a fallback (switch back from the Model Registry tab).
+verify a real transcription request works (and time it), then make OpenRouter's
+Nemotron 3.5 ASR the active ASR stage - the cloud-hosted version of the same
+model the local sherpa-onnx adapter runs in-process (see
+talkflow/asr/nemotron_sherpa_adapter.py), for machines where Docker/local
+inference isn't an option (e.g. a locked-down work laptop with no admin
+rights) but you still want the same model's behavior. Uses the same
+WhisperHttpAdapter/batch-HTTP shape as the OpenRouter Whisper option this
+replaced - OpenRouter's audio endpoint is a plain "/v1/audio/transcriptions"
+upload regardless of model, not the true frame-level streaming the local
+in-process adapter does. The local Docker/sherpa-onnx entries stay in the
+registry as a fallback (switch back from the Model Registry tab).
 
 Usage:
     python scripts/use_openrouter_asr.py (with the project venv)
@@ -23,7 +31,7 @@ from talkflow.registry.models import ModelAssignment  # noqa: E402
 
 KEY_REF = "asr_openrouter"
 BASE_URL = "https://openrouter.ai/api"  # adapter appends /v1/audio/transcriptions
-MODEL_ID = "openai/whisper-large-v3-turbo"
+MODEL_ID = "nvidia/nemotron-3.5-asr-streaming-multilingual-0.6b"
 
 
 def main() -> None:
@@ -54,7 +62,7 @@ def main() -> None:
     secret_store.set_api_key(KEY_REF, key)
     existing = [a for a in registry_store.list_for_stage("asr") if a.provider == "openrouter"]
     registry_store.upsert(ModelAssignment(
-        id=existing[0].id if existing else None, stage="asr", name="OpenRouter Whisper v3 Turbo",
+        id=existing[0].id if existing else None, stage="asr", name="OpenRouter Nemotron 3.5 ASR",
         provider="openrouter", base_url=BASE_URL, model_id=MODEL_ID,
         api_key_ref=KEY_REF, is_active=True,
     ))

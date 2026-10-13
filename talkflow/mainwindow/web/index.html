@@ -174,17 +174,31 @@
 
     <section id="tab-registry" class="hidden">
       <h1 class="section-title">Model Registry</h1>
-      <p class="section-sub">Every pipeline stage's provider is swappable — nothing is hardcoded.</p>
+      <p class="section-sub">Every pipeline stage's provider is swappable — nothing is hardcoded. "Test" tries a real request before anything is saved, so a bad key or URL can't break dictation.</p>
+
       <h2 class="text-[15px] font-semibold mb-2">ASR &mdash; speech to text</h2>
-      <div id="registry-asr" class="card divide-y divide-[var(--border)] mb-6"></div>
-      <h2 class="text-[15px] font-semibold mb-2">Cleanup &mdash; text to text, cloud, OpenAI-compatible</h2>
-      <div id="registry-cleanup" class="card divide-y divide-[var(--border)] mb-3"></div>
-      <div class="flex flex-wrap gap-2">
-        <input id="cleanup-base-url" placeholder="base_url e.g. https://ollama.com" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <input id="cleanup-model-id" placeholder="model id e.g. gpt-oss:120b" class="px-3 py-2 flex-1 min-w-[140px]" />
-        <input id="cleanup-api-key" placeholder="API key (stored in Windows Credential Manager)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <button onclick="saveCleanupRegistry()" class="btn btn-primary shrink-0">Save</button>
+      <div id="registry-asr" class="card divide-y divide-[var(--border)] mb-3"></div>
+      <div class="flex flex-wrap gap-2 mb-1">
+        <input id="asr-name" placeholder="name e.g. OpenRouter Nemotron" class="px-3 py-2 flex-1 min-w-[140px]" />
+        <input id="asr-provider" placeholder="provider e.g. openrouter" class="px-3 py-2 flex-1 min-w-[110px]" />
+        <input id="asr-base-url" placeholder="base_url" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <input id="asr-model-id" placeholder="model id" class="px-3 py-2 flex-1 min-w-[140px]" />
+        <input id="asr-api-key" placeholder="API key (optional - local providers need none)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <button onclick="testAndSaveRegistry('asr')" class="btn btn-primary shrink-0">Test &amp; Save</button>
       </div>
+      <div id="asr-test-result" class="text-sm mb-6"></div>
+
+      <h2 class="text-[15px] font-semibold mb-2">Cleanup &mdash; text to text, OpenAI-compatible (local or cloud)</h2>
+      <div id="registry-cleanup" class="card divide-y divide-[var(--border)] mb-3"></div>
+      <div class="flex flex-wrap gap-2 mb-1">
+        <input id="cleanup-name" placeholder="name e.g. Ollama Cloud" class="px-3 py-2 flex-1 min-w-[140px]" />
+        <input id="cleanup-provider" placeholder="provider e.g. ollama-cloud" class="px-3 py-2 flex-1 min-w-[110px]" />
+        <input id="cleanup-base-url" placeholder="base_url e.g. https://ollama.com" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <input id="cleanup-model-id" placeholder="model id e.g. gemma4:31b" class="px-3 py-2 flex-1 min-w-[140px]" />
+        <input id="cleanup-api-key" placeholder="API key (optional - local providers need none)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <button onclick="testAndSaveRegistry('cleanup')" class="btn btn-primary shrink-0">Test &amp; Save</button>
+      </div>
+      <div id="cleanup-test-result" class="text-sm"></div>
     </section>
 
     <section id="tab-settings" class="hidden">
@@ -213,11 +227,17 @@
           <input id="s-languages" placeholder="en, pt-BR" class="w-full px-3 py-2" />
           <div class="hotkey-row-sub mt-1">Comma-separated. TalkFlow detects which one you spoke on every dictation.</div>
         </label>
+        <label class="block">
+          <div class="font-medium mb-1">Microphone</div>
+          <select id="s-input-device" class="w-full px-3 py-2"></select>
+          <div class="hotkey-row-sub mt-1">Restart to apply.</div>
+        </label>
         <label class="flex items-center gap-2"><input type="checkbox" id="s-retain-history" class="w-4 h-4" /> Retain history</label>
         <label class="block">
           <div class="flex items-center gap-2"><input type="checkbox" id="s-partial-paste" class="w-4 h-4" /> Paste while speaking</div>
           <div class="hotkey-row-sub mt-1">Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.</div>
         </label>
+        <label class="flex items-center gap-2"><input type="checkbox" id="s-launch-at-login" class="w-4 h-4" /> Launch TalkFlow at login</label>
         <button onclick="saveSettings()" class="btn btn-primary">Save</button>
       </div>
     </section>
@@ -428,23 +448,57 @@ async function loadMeetings() {
     </div>`).join('') || '<div class="text-[var(--text-secondary)]">No meetings recorded yet.</div>';
 }
 
+function renderRegistryRows(stage, rows) {
+  return rows.map(a => `<div class="list-row">
+    <span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.provider)} &middot; ${escapeHtml(a.base_url)} &middot; ${escapeHtml(a.model_id)}</span>
+    <span class="flex items-center gap-2">
+      ${a.is_active ? '<span class="badge" style="color:var(--success)">Active</span>'
+                     : `<button class="btn btn-secondary" onclick="activateRegistry('${stage}', ${a.id})">Activate</button>`}
+      <button class="btn btn-secondary" onclick="deleteRegistry('${stage}', ${a.id})">Delete</button>
+    </span>
+  </div>`).join('') || '<div class="list-row text-[var(--text-secondary)]">No entries yet.</div>';
+}
+
 async function loadRegistry() {
   const asr = await pywebview.api.list_registry('asr');
-  $('registry-asr').innerHTML = asr.map(a =>
-    `<div class="list-row"><span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.base_url)} &middot; ${escapeHtml(a.model_id)}</span>${a.is_active ? '<span class="badge" style="color:var(--success)">Active</span>' : ''}</div>`).join('');
+  $('registry-asr').innerHTML = renderRegistryRows('asr', asr);
   const cleanup = await pywebview.api.list_registry('cleanup');
-  $('registry-cleanup').innerHTML = cleanup.map(a =>
-    `<div class="list-row"><span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.base_url)} &middot; ${escapeHtml(a.model_id)}</span>${a.is_active ? '<span class="badge" style="color:var(--success)">Active</span>' : ''}</div>`).join('');
-  if (cleanup[0]) { $('cleanup-base-url').value = cleanup[0].base_url; $('cleanup-model-id').value = cleanup[0].model_id; }
+  $('registry-cleanup').innerHTML = renderRegistryRows('cleanup', cleanup);
 }
-async function saveCleanupRegistry() {
-  const existing = (await pywebview.api.list_registry('cleanup'))[0];
+
+async function activateRegistry(stage, id) {
+  await pywebview.api.activate_registry(stage, id);
+  loadRegistry();
+}
+
+async function deleteRegistry(stage, id) {
+  await pywebview.api.delete_registry(id);
+  loadRegistry();
+}
+
+async function testAndSaveRegistry(stage) {
+  const name = $(`${stage}-name`).value.trim();
+  const provider = $(`${stage}-provider`).value.trim();
+  const baseUrl = $(`${stage}-base-url`).value.trim();
+  const modelId = $(`${stage}-model-id`).value.trim();
+  const apiKey = $(`${stage}-api-key`).value || null;
+  const resultEl = $(`${stage}-test-result`);
+  if (!name || !provider || !baseUrl || !modelId) {
+    resultEl.innerHTML = '<span style="color:var(--danger)">Fill in name, provider, base_url, and model id.</span>';
+    return;
+  }
+  resultEl.innerHTML = '<span class="text-[var(--text-secondary)]">Testing…</span>';
+  const test = await pywebview.api.test_registry_entry(stage, provider, baseUrl, modelId, apiKey);
+  if (!test.ok) {
+    resultEl.innerHTML = `<span style="color:var(--danger)">Test failed, nothing saved: ${escapeHtml(test.error)}</span>`;
+    return;
+  }
   await pywebview.api.upsert_registry({
-    id: existing ? existing.id : null, stage: 'cleanup', name: 'Ollama Cloud',
-    provider: 'ollama-cloud', base_url: $('cleanup-base-url').value,
-    model_id: $('cleanup-model-id').value, api_key_ref: 'cleanup_ollama_cloud', is_active: true,
-  }, $('cleanup-api-key').value || null);
-  $('cleanup-api-key').value = '';
+    id: null, stage, name, provider, base_url: baseUrl, model_id: modelId, is_active: true,
+  }, apiKey);
+  resultEl.innerHTML = '<span style="color:var(--success)">Saved and activated.</span>';
+  $(`${stage}-name`).value = ''; $(`${stage}-provider`).value = ''; $(`${stage}-base-url`).value = '';
+  $(`${stage}-model-id`).value = ''; $(`${stage}-api-key`).value = '';
   loadRegistry();
 }
 
@@ -456,6 +510,13 @@ async function loadSettings() {
   $('s-languages').value = s.language_allowlist.join(', ');
   $('s-retain-history').checked = s.retain_history;
   $('s-partial-paste').checked = s.partial_paste;
+  $('s-launch-at-login').checked = s.launch_at_login;
+
+  const devices = await pywebview.api.list_input_devices();
+  const sel = $('s-input-device');
+  sel.innerHTML = '<option value="">System default</option>' +
+    devices.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  sel.value = s.input_device_id || '';
 }
 async function saveSettings() {
   const current = await pywebview.api.get_settings();
@@ -463,8 +524,10 @@ async function saveSettings() {
     ...current,
     trigger_mode: $('s-trigger-mode').value,
     language_allowlist: $('s-languages').value.split(',').map(s => s.trim()).filter(Boolean),
+    input_device_id: $('s-input-device').value || null,
     retain_history: $('s-retain-history').checked,
     partial_paste: $('s-partial-paste').checked,
+    launch_at_login: $('s-launch-at-login').checked,
   });
   loadSettings();
 }

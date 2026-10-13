@@ -37,6 +37,7 @@ class Settings:
     input_device_id: str | None = None  # None = system default
     retain_history: bool = True
     retain_audio: bool = False  # transcripts are retained by default; raw audio is not
+    launch_at_login: bool = False  # mirrors a Startup-folder shortcut - see talkflow/config/autostart.py
     # Paste cleaned text piece by piece at each pause while still recording.
     # Off by default: each piece is cleaned without the rest of the dictation,
     # which weakens the cleanup (found in live use). The default pipeline

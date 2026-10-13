@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
+from talkflow.config import autostart
 from talkflow.config.settings import Settings
 from talkflow.features.dictionary import store as dictionary_store
 from talkflow.features.dictionary.learn import learn_from_correction
@@ -27,7 +28,17 @@ class Api:
     def save_settings(self, data: dict) -> dict:
         s = Settings(**{**asdict(Settings.load()), **data})
         s.save()
+        if "launch_at_login" in data:
+            autostart.set_enabled(s.launch_at_login)
         return asdict(s)
+
+    def list_input_devices(self) -> list[dict]:
+        import sounddevice as sd
+        return [
+            {"id": i, "name": d["name"]}
+            for i, d in enumerate(sd.query_devices())
+            if d["max_input_channels"] > 0
+        ]
 
     # --- History ---
     def list_history(self, limit: int = 50) -> list[dict]:
@@ -113,10 +124,15 @@ class Api:
         return [asdict(a) for a in registry_store.list_for_stage(stage)]
 
     def upsert_registry(self, assignment: dict, api_key: str | None = None) -> dict:
+        # A brand new entry with a real key but no key_ref yet needs one
+        # generated, or set_api_key() below has nothing to store it under.
+        key_ref = assignment.get("api_key_ref")
+        if api_key and not key_ref:
+            key_ref = f"{assignment['stage']}_{assignment['provider']}_{assignment['name']}".lower().replace(" ", "_")
         a = reg_models.ModelAssignment(
             id=assignment.get("id"), stage=assignment["stage"], name=assignment["name"],
             provider=assignment["provider"], base_url=assignment["base_url"],
-            model_id=assignment["model_id"], api_key_ref=assignment.get("api_key_ref"),
+            model_id=assignment["model_id"], api_key_ref=key_ref,
             is_active=bool(assignment.get("is_active", True)),
             extra_json=assignment.get("extra_json", "{}"),
         )
@@ -124,3 +140,40 @@ class Api:
         if api_key and a.api_key_ref:
             secret_store.set_api_key(a.api_key_ref, api_key)
         return {"id": new_id}
+
+    def activate_registry(self, stage: str, assignment_id: int) -> dict:
+        registry_store.activate(stage, assignment_id)
+        return {"ok": True}
+
+    def delete_registry(self, assignment_id: int) -> dict:
+        registry_store.delete(assignment_id)
+        return {"ok": True}
+
+    def test_registry_entry(self, stage: str, provider: str, base_url: str, model_id: str,
+                             api_key: str | None) -> dict:
+        """Verify a candidate entry actually works before it's saved/activated -
+        same "don't break dictation with a bad key" principle as
+        scripts/setup_cloud_only.py, exposed here so the UI can do it too."""
+        try:
+            if stage == "asr":
+                if provider == "nemotron-local":
+                    from talkflow.asr.nemotron_sherpa_adapter import NemotronSherpaAdapter
+                    NemotronSherpaAdapter(model_dir=base_url)  # raises if the model files are missing/invalid
+                else:
+                    from talkflow.asr.whisper_http_adapter import WhisperHttpAdapter
+                    adapter = WhisperHttpAdapter(base_url, model_id, api_key, timeout=30.0)
+                    adapter.start_session(["en"])
+                    adapter.set_full_audio(bytes(32000), 16000)
+                    adapter.finalize()
+            elif stage == "cleanup":
+                from talkflow.llm.openai_compatible_adapter import OpenAiCompatibleAdapter
+                adapter = OpenAiCompatibleAdapter(base_url=base_url, model_id=model_id, api_key=api_key, timeout=30.0)
+                adapter.cleanup(
+                    raw_transcript="this is a test", language="en", formality_name="Normal",
+                    formality_instruction="Clear, neutral, professional.", target_process_name=None,
+                )
+            else:
+                return {"ok": False, "error": f"unknown stage {stage!r}"}
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:500]}

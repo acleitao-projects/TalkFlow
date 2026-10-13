@@ -59,6 +59,25 @@ def list_for_stage(stage: str) -> list[ModelAssignment]:
         conn.close()
 
 
+def activate(stage: str, assignment_id: int) -> None:
+    conn = connect()
+    try:
+        conn.execute("UPDATE model_assignments SET is_active=0 WHERE stage=?", (stage,))
+        conn.execute("UPDATE model_assignments SET is_active=1 WHERE id=?", (assignment_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete(assignment_id: int) -> None:
+    conn = connect()
+    try:
+        conn.execute("DELETE FROM model_assignments WHERE id=?", (assignment_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _row_to_assignment(row) -> ModelAssignment:
     return ModelAssignment(
         id=row["id"], stage=row["stage"], name=row["name"], provider=row["provider"],
