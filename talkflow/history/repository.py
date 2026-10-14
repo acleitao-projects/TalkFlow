@@ -72,6 +72,15 @@ def update_cleaned_transcript(session_id: str, new_text: str) -> str | None:
         conn.close()
 
 
+def delete_session(session_id: str) -> None:
+    conn = connect()
+    try:
+        conn.execute("DELETE FROM dictation_sessions WHERE id=?", (session_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def list_recent(limit: int = 50) -> list[dict]:
     conn = connect()
     try:

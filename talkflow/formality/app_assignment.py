@@ -3,16 +3,39 @@ from __future__ import annotations
 from talkflow.history.db import connect
 
 DEFAULT_PRESET_ID = "normal"
+FALLBACK_CATEGORY_ID = "other"
 
 
 def get_preset_for_app(process_name: str | None) -> str:
+    """Resolution order: (1) a direct per-app override in
+    app_preset_assignments, if one was ever set (legacy/advanced, no longer
+    surfaced in the UI but still honored) - (2) the Style category the app is
+    assigned to (talkflow/formality/categories.py) - (3) the "Other" category's
+    preset, the final fallback for anything not otherwise assigned."""
     if not process_name:
         return DEFAULT_PRESET_ID
+    name = process_name.lower()
     conn = connect()
     try:
         row = conn.execute(
-            "SELECT preset_id FROM app_preset_assignments WHERE process_name=?",
-            (process_name.lower(),),
+            "SELECT preset_id FROM app_preset_assignments WHERE process_name=?", (name,)
+        ).fetchone()
+        if row:
+            return row["preset_id"]
+
+        row = conn.execute(
+            """
+            SELECT sc.preset_id FROM category_app_assignments caa
+            JOIN style_categories sc ON sc.id = caa.category_id
+            WHERE caa.process_name=?
+            """,
+            (name,),
+        ).fetchone()
+        if row:
+            return row["preset_id"]
+
+        row = conn.execute(
+            "SELECT preset_id FROM style_categories WHERE id=?", (FALLBACK_CATEGORY_ID,)
         ).fetchone()
         return row["preset_id"] if row else DEFAULT_PRESET_ID
     finally:

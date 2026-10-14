@@ -34,6 +34,11 @@ class Settings:
     transform_prompt_engineer_hotkey: str = "<ctrl>+<shift>+e"
     command_mode_hotkey: str = "<ctrl>+<shift>+m"
     language_allowlist: list[str] = field(default_factory=lambda: ["en"])
+    # How aggressively the cleanup stage edits the transcript, independent of
+    # the per-app/category formality register: "none" skips the LLM call
+    # entirely (verbatim transcript), "light" (default, previous fixed
+    # behavior) only removes disfluencies, "medium" also tightens wording.
+    cleanup_level: Literal["none", "light", "medium"] = "light"
     input_device_id: str | None = None  # None = system default
     retain_history: bool = True
     retain_audio: bool = False  # transcripts are retained by default; raw audio is not
@@ -45,6 +50,27 @@ class Settings:
     # the whole text once at stop. Only takes effect when no modifier is held
     # during recording (partial_paste_allowed()).
     partial_paste: bool = False
+    # Shows a small notes icon on the dictation pill that opens the floating
+    # multi-tab Scratchpad popup (talkflow/floatingnotes/). Off by default -
+    # the pill stays minimal until the user opts in from the Scratchpad tab.
+    scratchpad_in_pill: bool = False
+    # Floating notes popup geometry, persisted across restarts once the user
+    # moves/resizes it at least once; None means "use the computed default
+    # (bottom-right corner, near the pill)".
+    scratchpad_popup_x: int | None = None
+    scratchpad_popup_y: int | None = None
+    scratchpad_popup_w: int | None = None
+    scratchpad_popup_h: int | None = None
+    # Main-window UI preferences (not pipeline behavior) - persisted the same
+    # way as everything else in this file, not via browser localStorage,
+    # since pywebview's storage_path handling is inconsistent across windows
+    # and this file is already the single source of truth for "how TalkFlow
+    # looks/behaves for this user".
+    ui_theme: str = "light"  # "light" | "dark"
+    ui_language: str = "en"  # "en" | "pt-BR" - interface language, independent of dictation language_allowlist
+    ui_sidebar_collapsed: bool = False
+    ui_dictionary_banner_dismissed: bool = False
+    ui_snippets_banner_dismissed: bool = False
 
     def partial_paste_allowed(self) -> bool:
         """Partial paste synthesizes Ctrl+V mid-recording; with a held

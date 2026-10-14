@@ -93,7 +93,7 @@ class FakeLlm:
 
     def cleanup(self, raw_transcript, language, formality_name, formality_instruction,
                 target_process_name, dictionary_terms=None, snippet_candidates=None,
-                previous_text=None):
+                previous_text=None, cleanup_level="light"):
         self.calls.append({"raw": raw_transcript, "language": language, "previous_text": previous_text})
         return CleanupResult(cleaned_text=raw_transcript.capitalize() + ".", model_used="fake", latency_ms=1.0)
 

@@ -23,10 +23,14 @@ class LlmAdapter(ABC):
         dictionary_terms: list[str] | None = None,
         snippet_candidates: list[tuple[str, str]] | None = None,
         previous_text: str | None = None,
+        cleanup_level: str = "light",
     ) -> CleanupResult:
         """Remove disfluencies and apply the formality instruction, preserving
         the input language (never translates). `previous_text` is the already
-        inserted start of the same dictation (context only, never re-emitted)."""
+        inserted start of the same dictation (context only, never re-emitted).
+        `cleanup_level`: "none" skips the LLM call and returns the transcript
+        verbatim; "light" (default) removes disfluencies only; "medium" also
+        tightens wording for clarity/concision."""
 
     @abstractmethod
     def rewrite(self, text: str, instruction: str) -> CleanupResult:

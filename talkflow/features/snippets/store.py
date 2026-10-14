@@ -50,6 +50,25 @@ def add_snippet(trigger: str, expansion: str) -> Snippet:
     return Snippet(snippet_id, trigger, expansion, now, now, is_builtin=False)
 
 
+def update_snippet(snippet_id: str, trigger: str, expansion: str) -> Snippet | None:
+    trigger = trigger.strip()[:MAX_TRIGGER_CHARS]
+    expansion = expansion[:MAX_EXPANSION_CHARS]
+    now = datetime.now(timezone.utc).isoformat()
+    conn = connect()
+    try:
+        row = conn.execute("SELECT * FROM snippets WHERE id=?", (snippet_id,)).fetchone()
+        if row is None:
+            return None
+        conn.execute(
+            "UPDATE snippets SET trigger=?, expansion=?, updated_at=? WHERE id=?",
+            (trigger, expansion, now, snippet_id),
+        )
+        conn.commit()
+        return Snippet(snippet_id, trigger, expansion, row["created_at"], now, bool(row["is_builtin"]))
+    finally:
+        conn.close()
+
+
 def delete_snippet(snippet_id: str) -> None:
     conn = connect()
     try:

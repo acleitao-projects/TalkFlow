@@ -42,6 +42,24 @@ CREATE TABLE IF NOT EXISTS app_preset_assignments (
     preset_id TEXT NOT NULL REFERENCES formality_presets(id)
 );
 
+-- Style categories (Personal messages / Work messages / Email / Other) -
+-- each holds ONE active preset, applied to every app assigned to it. An app
+-- can belong to at most one category (category_app_assignments.process_name
+-- is the primary key). This sits ABOVE app_preset_assignments in resolution
+-- order: see talkflow/formality/app_assignment.py::get_preset_for_app -
+-- app_preset_assignments is left in place as a power-user direct override
+-- that still wins if both are set for the same app.
+CREATE TABLE IF NOT EXISTS style_categories (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    preset_id TEXT NOT NULL REFERENCES formality_presets(id)
+);
+
+CREATE TABLE IF NOT EXISTS category_app_assignments (
+    process_name TEXT PRIMARY KEY,
+    category_id TEXT NOT NULL REFERENCES style_categories(id)
+);
+
 CREATE TABLE IF NOT EXISTS dictionary_entries (
     id TEXT PRIMARY KEY,
     term TEXT NOT NULL,
@@ -78,6 +96,14 @@ CREATE TABLE IF NOT EXISTS custom_transforms (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS scratchpad_notes (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notetaker_sessions (
     id TEXT PRIMARY KEY,
     started_at TEXT NOT NULL,
@@ -94,6 +120,18 @@ _BUILTIN_PRESETS = [
     ("friendly", "Friendly", "Warm, conversational, first-person, light contractions, minimal jargon."),
     ("normal", "Normal", "Clear, neutral, professional but not stiff; standard punctuation and grammar."),
     ("formal", "Formal", "Precise, formal register, no contractions, complete sentences, no slang."),
+]
+
+# id, display name, default preset id. Apps are matched by OS process name
+# (see context_provider.py) - a website running inside a shared browser
+# process (Gmail/LinkedIn in chrome.exe) can't be told apart from any other
+# tab, so only native desktop apps are seedable here; the UI lets the user
+# add more by process name regardless.
+_BUILTIN_CATEGORIES = [
+    ("personal", "Personal messages", "friendly", ["whatsapp.exe", "telegram.exe", "discord.exe"]),
+    ("work", "Work messages", "normal", ["slack.exe", "teams.exe", "ms-teams.exe"]),
+    ("email", "Email", "normal", ["outlook.exe", "thunderbird.exe"]),
+    ("other", "Other", "normal", []),
 ]
 
 # Common spoken-abbreviation expansions, seeded ONLY when the snippets table
@@ -152,6 +190,17 @@ def init_db(path: Path | None = None) -> None:
                 "VALUES (?, ?, ?, 1)",
                 (preset_id, name, instruction),
             )
+
+        for cat_id, name, default_preset_id, default_apps in _BUILTIN_CATEGORIES:
+            conn.execute(
+                "INSERT OR IGNORE INTO style_categories (id, name, preset_id) VALUES (?, ?, ?)",
+                (cat_id, name, default_preset_id),
+            )
+            for process_name in default_apps:
+                conn.execute(
+                    "INSERT OR IGNORE INTO category_app_assignments (process_name, category_id) VALUES (?, ?)",
+                    (process_name, cat_id),
+                )
 
         (snippet_count,) = conn.execute("SELECT COUNT(*) FROM snippets").fetchone()
         if snippet_count == 0:

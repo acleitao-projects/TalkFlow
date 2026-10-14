@@ -115,11 +115,13 @@ class Orchestrator:
         on_state_change=None,  # Callable[[DictationSession], None] - drives the overlay UI
         partial_paste: bool = False,
         incremental_asr: bool = False,
+        cleanup_level: str = "light",
     ):
         self.asr = asr
         self.llm = llm
         self.insertion = insertion
         self.allowed_languages = allowed_languages
+        self.cleanup_level = cleanup_level
         self.input_device_id = input_device_id
         self.on_state_change = on_state_change
         # Paste cleaned text piece by piece at each pause while still
@@ -332,6 +334,7 @@ class Orchestrator:
                 formality_instruction=preset.instruction if preset else "Clear, neutral, professional.",
                 target_process_name=run.target.process_name,
                 dictionary_terms=all_terms() or None,
+                cleanup_level=self.cleanup_level,
                 **kwargs,
             )
         except Exception as e:
@@ -382,6 +385,7 @@ class Orchestrator:
                 formality_instruction=preset.instruction if preset else "Clear, neutral, professional.",
                 target_process_name=run.target.process_name,
                 dictionary_terms=all_terms() or None,
+                cleanup_level=self.cleanup_level,
             )
         except Exception as e:
             run.error = ("llm_error", str(e))
@@ -576,6 +580,7 @@ class Orchestrator:
                 formality_instruction=preset.instruction if preset else "Clear, neutral, professional.",
                 target_process_name=target.process_name,
                 dictionary_terms=all_terms() or None,
+                cleanup_level=self.cleanup_level,
             )
         except Exception as e:
             self._fail("llm_error", str(e))

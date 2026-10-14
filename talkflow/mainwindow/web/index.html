@@ -10,16 +10,60 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
 <style>
   :root {
-    --bg: #f6f4ef; --card: #ffffff; --border: #e7e3d9; --border-strong: #d8d3c5;
-    --text: #1c1b17; --text-secondary: #6b6a60; --text-muted: #9a988c;
-    --accent: #1c1b17; --accent-contrast: #ffffff;
+    --bg: #fcfbf8; --panel: #ffffff; --card: #ffffff; --border: #eceae3; --border-strong: #ddd9cd;
+    --text: #181713; --text-secondary: #6b6a60; --text-muted: #9a988c;
+    --accent: #181713; --accent-contrast: #ffffff;
     --danger: #b3432f; --success: #2f7d4f;
+    --hover-bg: #f3f1ea; --input-bg: #faf9f5;
+    --warn-bg: #fdf0e0; --warn-border: #e0a95f; --warn-text: #8a5a1f;
+    --danger-hover-bg: #fdeceb; --danger-hover-text: #c0392b;
+    --accent-teal: #1c6b5a; --accent-teal-mid: #7cbfa9; --accent-teal-light: #bcdfd4;
+    --accent-amber: #f6b93b; --accent-amber-soft: #fde9c2; --accent-amber-text: #181713;
+    --hero-grad-1: #14110f; --hero-grad-2: #2a2420; --hero-grad-3: #4a3a2a;
+    --titlebar-bg: var(--bg);
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1a17; --panel: #232119; --card: #2a2821; --border: #3a3729; --border-strong: #4a4736;
+    --text: #efece4; --text-secondary: #a8a496; --text-muted: #78756a;
+    --accent: #efece4; --accent-contrast: #1b1a17;
+    --danger: #e5796a; --success: #6fc294;
+    --hover-bg: #322f26; --input-bg: #26241c;
+    --warn-bg: #3a3020; --warn-border: #8a6a30; --warn-text: #e0b96a;
+    --danger-hover-bg: #3a2420; --danger-hover-text: #e5796a;
+    --accent-teal: #3a9b82; --accent-teal-mid: #2c6e5c; --accent-teal-light: #1f4a3e;
+    --accent-amber: #e0a63a; --accent-amber-soft: #3a2e14; --accent-amber-text: #f6d998;
+    --hero-grad-1: #0d0c0a; --hero-grad-2: #1c1813; --hero-grad-3: #352a1c;
+    --titlebar-bg: #141310;
   }
   html, body { background: var(--bg); color: var(--text); }
-  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .content-panel { margin: 10px 10px 10px 0; border-radius: 22px; background: var(--panel); box-shadow: 0 1px 3px rgba(20,18,10,.06); }
+
+  #titlebar {
+    height: 38px; shrink: 0; display: flex; align-items: center; gap: 2px; padding: 0 8px;
+    background: var(--titlebar-bg); -webkit-user-select: none; user-select: none;
+  }
+  #tb-title { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-left: 2px; }
+  .tb-spacer { flex: 1; }
+  .tb-btn {
+    width: 30px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); font-size: 14px; shrink: 0;
+  }
+  .tb-btn:hover { background: var(--hover-bg); color: var(--text); }
+  .tb-close:hover { background: var(--danger); color: #fff; }
+  .tb-lang-btn { width: auto; padding: 0 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; }
+
+  #sidebar { transition: width .15s ease; overflow: hidden; }
+  #sidebar.collapsed { width: 56px; }
+  #sidebar.collapsed .nav-label { display: none; }
+  #sidebar.collapsed .nav-item { justify-content: center; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; position: relative; }
+  #mw-resize-grip {
+    position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; z-index: 50;
+    background: linear-gradient(135deg, transparent 0 50%, var(--border-strong) 50% 58%, transparent 58% 65%, var(--border-strong) 65% 73%, transparent 73%);
+  }
   h1, h2, h3, .nav-item { font-family: 'Inter', sans-serif; }
   .nav-item { cursor: pointer; color: var(--text-secondary); transition: background .12s ease, color .12s ease; }
-  .nav-item:hover { background: #efece3; color: var(--text); }
+  .nav-item:hover { background: var(--hover-bg); color: var(--text); }
   .nav-item.active { background: var(--card); color: var(--text); font-weight: 500; box-shadow: inset 0 0 0 1px var(--border); }
   .nav-item i { font-size: 17px; width: 20px; text-align: center; }
   input, textarea, select {
@@ -42,10 +86,10 @@
   .meeting-summary p { margin: 4px 0; }
   .hotkey-chip {
     font-family: ui-monospace, monospace; font-size: 12px; font-weight: 500;
-    background: #efece3; border: 1px solid var(--border-strong); border-radius: 6px;
+    background: var(--hover-bg); border: 1px solid var(--border-strong); border-radius: 6px;
     padding: 4px 10px; display: inline-block; min-width: 90px; text-align: center;
   }
-  .hotkey-chip.capturing { background: #fdf0e0; border-color: #e0a95f; color: #8a5a1f; }
+  .hotkey-chip.capturing { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
   .hotkey-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
   .hotkey-row:last-child { border-bottom: none; }
   .hotkey-row > div:first-child { flex: 1; min-width: 0; }
@@ -56,127 +100,734 @@
   .section-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
   .list-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; }
   .list-row + .list-row { border-top: 1px solid var(--border); }
-  .badge { font-size: 11px; font-weight: 500; color: var(--text-secondary); background: #efece3; border-radius: 999px; padding: 2px 8px; }
+
+  .scratch-shell { display: flex; gap: 16px; height: 600px; }
+  .scratch-list-pane {
+    width: 280px; shrink: 0; display: flex; flex-direction: column;
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: 0 1px 2px rgba(20,18,10,.04); overflow: hidden;
+  }
+  .scratch-list-head { display: flex; align-items: center; gap: 8px; padding: 12px; border-bottom: 1px solid var(--border); }
+  .scratch-search-wrap { position: relative; flex: 1; }
+  .scratch-search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 15px; color: var(--text-secondary); }
+  .scratch-search-wrap input {
+    width: 100%; padding: 7px 10px 7px 32px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--input-bg); font-size: 13px;
+  }
+  .scratch-search-wrap input:focus { outline: none; border-color: var(--border-strong); background: var(--card); }
+  .scratch-icon-btn {
+    width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); border: 1px solid transparent; shrink: 0; font-size: 16px;
+  }
+  .scratch-icon-btn:hover { background: var(--hover-bg); color: var(--text); }
+  .scratch-icon-btn-danger:hover { background: var(--danger-hover-bg); color: var(--danger-hover-text); }
+  .scratch-list { flex: 1; overflow-y: auto; padding: 6px; }
+  .scratch-note-item {
+    padding: 10px 10px; border-radius: 12px; cursor: pointer; position: relative; margin-bottom: 2px;
+  }
+  .scratch-note-item:hover { background: var(--hover-bg); }
+  .scratch-note-item.active { background: var(--hover-bg); }
+  .scratch-note-title { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 26px; }
+  .scratch-note-preview { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .scratch-note-time { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+  .scratch-note-del {
+    position: absolute; right: 8px; top: 9px; width: 22px; height: 22px; border-radius: 7px;
+    display: none; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 13px;
+  }
+  .scratch-note-item:hover .scratch-note-del { display: flex; }
+  .scratch-note-del:hover { background: var(--danger-hover-bg); color: var(--danger-hover-text); }
+  .scratch-list-empty { padding: 24px 14px; text-align: center; color: var(--text-secondary); font-size: 13px; }
+
+  .scratch-editor-pane {
+    flex: 1; display: flex; flex-direction: column;
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: 0 1px 2px rgba(20,18,10,.04); padding: 20px 24px;
+  }
+  .scratch-title-input { border: none; font-size: 19px; font-weight: 650; padding: 0 0 12px 0; margin-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .scratch-title-input:focus { outline: none; }
+  .scratch-content-area { flex: 1; border: none; resize: none; font-size: 14px; line-height: 1.6; padding: 0; }
+  .scratch-content-area:focus { outline: none; }
+  .scratch-editor-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border); margin-top: 8px; }
+  .scratch-updated { font-size: 11.5px; color: var(--text-secondary); }
+  .scratch-empty-state { align-items: center; justify-content: center; color: var(--text-secondary); gap: 8px; }
+  .scratch-empty-state i { font-size: 34px; opacity: .5; }
+  .scratch-empty-state p { font-size: 13.5px; }
+
+  .switch { position: relative; display: inline-block; width: 36px; height: 21px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-track { position: absolute; inset: 0; background: var(--border-strong); border-radius: 999px; transition: background .15s ease; }
+  .switch-track::before {
+    content: ''; position: absolute; width: 17px; height: 17px; left: 2px; top: 2px; background: #fff;
+    border-radius: 50%; transition: transform .15s ease; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  }
+  .switch input:checked + .switch-track { background: var(--accent); }
+  .switch input:checked + .switch-track::before { transform: translateX(15px); }
+
+  .insights-wrap { max-width: 980px; margin: 0 auto; }
+  .insights-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+  .insights-row-2 { grid-template-columns: 1.2fr 1fr; }
+  .insight-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(20,18,10,.04); }
+  .insight-label { font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; }
+  .insight-big { font-size: 30px; font-weight: 650; line-height: 1; }
+  .insight-foot { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+
+  .wpm-gauge-wrap { position: relative; width: 120px; height: 68px; margin: 0 auto; }
+  .wpm-gauge { width: 100%; height: 100%; overflow: visible; }
+  .wpm-value { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; }
+  .wpm-value span { font-size: 22px; font-weight: 650; }
+  .wpm-sub { font-size: 10.5px; color: var(--text-secondary); margin-top: -2px; }
+
+  .dict-growth-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; padding: 6px 0; }
+  .dict-growth-row i { font-size: 15px; color: var(--text-secondary); width: 18px; }
+  .dict-growth-row span { font-weight: 650; }
+
+  .app-usage-list { display: flex; flex-direction: column; gap: 11px; margin-top: 4px; }
+  .app-usage-row { display: flex; align-items: center; gap: 10px; }
+  .app-usage-row i { font-size: 15px; color: var(--text-secondary); width: 16px; text-align: center; shrink: 0; }
+  .app-usage-row .count { font-size: 11px; color: var(--text-secondary); width: 56px; text-align: right; shrink: 0; }
+  .app-usage-empty { font-size: 13px; color: var(--text-secondary); padding: 8px 0; }
+
+  .ins-calendar { margin-top: 10px; display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); gap: 3px; overflow-x: auto; padding-bottom: 4px; }
+  .ins-day { width: 11px; height: 11px; border-radius: 3px; background: var(--hover-bg); }
+  .ins-day[data-level="1"] { background: var(--accent-teal-light); }
+  .ins-day[data-level="2"] { background: var(--accent-teal-mid); }
+  .ins-day[data-level="3"] { background: var(--accent-teal); }
+  .badge { font-size: 11px; font-weight: 500; color: var(--text-secondary); background: var(--hover-bg); border-radius: 999px; padding: 2px 8px; }
+
+  .insights-subtabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  .insights-subtab { font-size: 13.5px; font-weight: 600; color: var(--text-secondary); padding-bottom: 10px; cursor: pointer; border-bottom: 2px solid transparent; }
+  .insights-subtab:hover { color: var(--text); }
+  .insights-subtab.active { color: var(--text); border-bottom-color: var(--text); }
+  .insight-divider { height: 1px; background: var(--border); margin: 10px 0 8px; }
+  .insight-pill-row { display: flex; align-items: center; gap: 10px; }
+  .insight-pill-row i { font-size: 14px; color: var(--text-secondary); width: 16px; text-align: center; shrink: 0; }
+  .insight-pill { font-size: 11.5px; font-weight: 650; color: #fff; background: var(--accent-teal); border-radius: 6px; padding: 3px 9px; min-width: 42px; text-align: center; }
+  .insight-pill-label { font-size: 11.5px; font-weight: 600; letter-spacing: .02em; color: var(--text-secondary); text-transform: uppercase; }
+
+  .ins-calendar-wrap { display: flex; align-items: flex-start; gap: 4px; margin-top: 12px; }
+  .ins-cal-nav { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); flex-shrink: 0; margin-top: 14px; font-size: 13px; }
+  .ins-cal-nav:hover { background: var(--hover-bg); color: var(--text); }
+  .ins-calendar-scroll { flex: 1; min-width: 0; overflow-x: auto; }
+  .ins-cal-months { display: flex; font-size: 10.5px; color: var(--text-secondary); margin-bottom: 4px; padding-left: 26px; white-space: nowrap; }
+  .ins-cal-months span { display: inline-block; overflow: hidden; }
+  .ins-calendar-body { display: flex; gap: 4px; }
+  .ins-weekday-col { display: grid; grid-template-rows: repeat(7, 11px); gap: 3px; font-size: 9px; color: var(--text-muted); width: 22px; line-height: 11px; }
+  .ins-cal-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 10.5px; color: var(--text-secondary); justify-content: flex-end; }
+  .ins-cal-legend .ins-day { width: 10px; height: 10px; }
+
+  .style-cards-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+  .style-card { background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; padding: 16px 18px; cursor: pointer; min-height: 160px; display: flex; flex-direction: column; transition: border-color .12s ease; }
+  .style-card:hover { border-color: var(--border-strong); }
+  .style-card.selected { border-color: #8b5cf6; box-shadow: 0 0 0 1px #8b5cf6 inset; }
+  .style-card-name { font-size: 14px; font-weight: 650; }
+  .style-card-sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; margin-bottom: 12px; }
+  .style-card-preview { margin-top: auto; background: var(--hover-bg); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; color: var(--text); }
+  .style-banner-apps { position: absolute; right: 24px; top: 50%; transform: translateY(-50%); display: flex; gap: 6px; z-index: 1; }
+  .style-app-orb { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; }
+  .style-app-orb-add { cursor: pointer; }
+  .style-app-orb-add:hover { background: rgba(255,255,255,.26); }
+  .style-app-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .style-app-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--hover-bg); border-radius: 999px; padding: 5px 10px; font-size: 12px; }
+  .style-app-chip i { font-size: 13px; color: var(--text-secondary); }
+  .style-app-chip-remove { cursor: pointer; color: var(--text-muted); font-weight: 700; margin-left: 2px; }
+  .style-app-chip-remove:hover { color: var(--danger); }
+  .style-beta-badge { font-size: 9.5px; font-weight: 700; color: #8b5cf6; background: #f3eefd; border-radius: 999px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
+  :root[data-theme="dark"] .style-beta-badge { background: #2a2140; }
+
+  .dict-banner-tall { height: auto; min-height: 168px; padding: 22px 28px; display: block; position: relative; }
+  .dict-banner-tall .dict-banner-content { max-width: 640px; position: static; }
+  .dict-banner-close {
+    position: absolute; top: 14px; right: 14px; width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(255,255,255,.14); color: #fff; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 13px; z-index: 2;
+  }
+  .dict-banner-close:hover { background: rgba(255,255,255,.26); }
+  .dict-pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .dict-pill { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.22); border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 500; }
+  .dict-pill-primary { background: #fff; color: #1c1b17; border-color: #fff; cursor: pointer; }
+  .dict-pill-primary:hover { opacity: .88; }
+
+  .toolbar-icon-btn { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 15px; cursor: pointer; }
+  .toolbar-icon-btn:hover { background: var(--hover-bg); color: var(--text); }
+  .toolbar-search-wrap { width: 0; overflow: hidden; transition: width .15s ease; }
+  .toolbar-search-wrap.open { width: 200px; }
+  .row-del-btn { display: none; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; color: var(--text-secondary); font-size: 13px; shrink: 0; }
+  .list-row:hover .row-del-btn, .meeting-summary:hover .row-del-btn { display: flex; }
+  .row-del-btn:hover { background: var(--danger-hover-bg); color: var(--danger-hover-text); }
+
+  /* ---- Dictation hero (Wispr-style greeting + promo banner + quick stats) ---- */
+  .dict-wrap { max-width: 980px; margin: 0 auto; }
+  .dict-greeting { font-size: 26px; font-weight: 650; line-height: 1.3; margin-bottom: 18px; letter-spacing: -.01em; }
+  .dict-hotkey-pill {
+    display: inline-flex; align-items: center; background: var(--accent-amber-soft); color: var(--accent-amber-text);
+    border-radius: 8px; padding: 2px 10px; font-weight: 700; font-family: ui-monospace, monospace; font-size: .82em;
+    vertical-align: middle; margin: 0 2px;
+  }
+  .dict-banner {
+    position: relative; border-radius: 18px; overflow: hidden; height: 168px; margin-bottom: 18px;
+    background: linear-gradient(120deg, var(--hero-grad-1), var(--hero-grad-2) 55%, var(--hero-grad-3));
+    box-shadow: 0 1px 2px rgba(20,18,10,.08);
+  }
+  .dict-banner img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .dict-banner-content { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 22px 28px; max-width: 420px; }
+  .dict-banner-title { color: #fff; font-size: 17px; font-weight: 650; margin-bottom: 6px; }
+  .dict-banner-sub { color: rgba(255,255,255,.72); font-size: 12.5px; line-height: 1.5; }
+  .dict-banner-cta {
+    align-self: flex-start; margin-top: 12px; background: rgba(255,255,255,.14); color: #fff;
+    border: 1px solid rgba(255,255,255,.28); border-radius: 8px; padding: 6px 13px; font-size: 12px; font-weight: 500;
+  }
+  .dict-banner-cta:hover { background: rgba(255,255,255,.22); }
+  .dict-banner-dots { position: absolute; left: 28px; bottom: 16px; display: flex; gap: 6px; z-index: 1; }
+  .dict-banner-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.3); cursor: pointer; }
+  .dict-banner-dot.active { background: rgba(255,255,255,.85); width: 16px; border-radius: 3px; }
+  .dict-banner-orbs { position: absolute; inset: 0; overflow: hidden; }
+  .dict-orb {
+    position: absolute; width: 38px; height: 38px; border-radius: 11px; background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,.75); font-size: 17px; backdrop-filter: blur(2px);
+  }
+  .dict-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+  .dict-stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(20,18,10,.04); }
+  .dict-stat-label { font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
+  .dict-stat-value { font-size: 24px; font-weight: 650; line-height: 1; }
+  .dict-config-card { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; }
+  .dict-config-item { display: flex; align-items: center; gap: 8px; }
+  .dict-config-item i { font-size: 15px; color: var(--text-secondary); }
+  .dict-config-divider { width: 1px; height: 22px; background: var(--border); }
+  .dict-view-all { font-size: 12.5px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
+  .dict-view-all:hover { color: var(--text); text-decoration: underline; }
+  .dict-recent-row { display: flex; align-items: flex-start; gap: 14px; padding: 11px 14px; position: relative; }
+  .dict-recent-time { font-size: 11.5px; color: var(--text-muted); width: 64px; shrink: 0; white-space: nowrap; padding-top: 1px; }
+  .dict-recent-text { flex: 1; min-width: 0; font-size: 13px; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .dict-recent-text textarea { width: 100%; font-size: 13px; line-height: 1.45; padding: 6px 8px; }
+  .dict-recent-empty { padding: 20px 14px; color: var(--text-secondary); font-size: 13px; }
+  .dict-recent-meta { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-secondary); margin-bottom: 3px; }
+  .dict-recent-meta i { font-size: 12px; }
+  .dict-recent-meta .dot { color: var(--text-muted); }
+  .dict-recent-menu-btn {
+    width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); shrink: 0; font-size: 15px;
+  }
+  .dict-recent-menu-btn:hover { background: var(--hover-bg); color: var(--text); }
+  .dict-recent-menu {
+    position: absolute; right: 14px; top: 38px; z-index: 20; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; box-shadow: 0 6px 18px rgba(20,18,10,.14); min-width: 150px; padding: 4px; display: none;
+  }
+  .dict-recent-menu.open { display: block; }
+  .dict-recent-menu-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .dict-recent-menu-item:hover { background: var(--hover-bg); }
+  .dict-recent-menu-item.danger { color: var(--danger); }
+  .dict-recent-menu-item.danger:hover { background: var(--danger-hover-bg); }
+  .dict-recent-learned { font-size: 11.5px; padding: 0 14px 10px 92px; color: var(--success); }
+
+  /* ---- Clickable config chips + popovers (trigger mode / languages) ---- */
+  .dict-config-item.clickable { cursor: pointer; border-radius: 8px; padding: 4px 8px; margin: -4px -8px; transition: background .12s ease; }
+  .dict-config-item.clickable:hover { background: var(--hover-bg); }
+  .dict-config-item.clickable i.ti-chevron-down { font-size: 13px; margin-left: 2px; color: var(--text-muted); }
+  .dict-mode-popover {
+    position: absolute; z-index: 30; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(20,18,10,.16); padding: 6px; min-width: 240px; display: none;
+  }
+  .dict-mode-popover.open { display: block; }
+  .dict-mode-option { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; }
+  .dict-mode-option:hover { background: var(--hover-bg); }
+  .dict-mode-option i { font-size: 16px; color: var(--text-secondary); width: 18px; }
+  .dict-mode-option .label { font-size: 13px; font-weight: 500; }
+  .dict-mode-option .sub { font-size: 11.5px; color: var(--text-secondary); }
+  .dict-mode-option.selected { background: var(--accent-amber-soft); }
+  .dict-mode-option.selected .label { color: var(--accent-amber-text); }
+
+  /* ---- Language picker modal (Wispr-style) ---- */
+  .lang-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(20,18,10,.35); z-index: 100; display: none;
+    align-items: center; justify-content: center;
+  }
+  .lang-modal-backdrop.open { display: flex; }
+  .lang-modal {
+    width: min(760px, 92vw); max-height: 82vh; background: var(--card); border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25); display: flex; flex-direction: column; overflow: hidden;
+  }
+  .lang-modal-head { padding: 20px 24px 14px; border-bottom: 1px solid var(--border); }
+  .lang-modal-title { font-size: 17px; font-weight: 650; }
+  .lang-modal-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
+  .lang-modal-autodetect { position: absolute; top: 20px; right: 24px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .lang-modal-head { position: relative; }
+  .lang-modal-body { flex: 1; overflow: hidden; display: flex; }
+  .lang-modal-main { flex: 1; overflow-y: auto; padding: 16px 24px 20px; min-width: 0; }
+  .lang-search-wrap { position: relative; margin-bottom: 14px; }
+  .lang-search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 15px; color: var(--text-secondary); }
+  .lang-search-wrap input { width: 100%; padding: 9px 12px 9px 34px; border-radius: 10px; background: var(--input-bg); }
+  .lang-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .lang-chip {
+    border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 12px; cursor: pointer;
+    transition: border-color .1s ease, background .1s ease;
+  }
+  .lang-chip:hover { background: var(--hover-bg); }
+  .lang-chip.selected { border-color: #8b5cf6; background: #f3eefd; }
+  :root[data-theme="dark"] .lang-chip.selected { background: #2a2140; }
+  .lang-chip .name { font-size: 13.5px; font-weight: 600; }
+  .lang-chip .native { font-size: 11.5px; color: var(--text-secondary); margin-top: 1px; }
+  .lang-modal-side { width: 200px; shrink: 0; border-left: 1px solid var(--border); padding: 16px 18px; overflow-y: auto; }
+  .lang-modal-side-title { font-size: 12.5px; font-weight: 650; margin-bottom: 8px; }
+  .lang-selected-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+  .lang-selected-remove { color: var(--text-muted); cursor: pointer; font-size: 15px; padding: 0 4px; }
+  .lang-selected-remove:hover { color: var(--danger); }
+  .lang-modal-foot { padding: 14px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
 </style>
 </head>
-<body class="flex h-screen overflow-hidden text-sm">
-  <nav class="w-56 shrink-0 bg-[var(--bg)] border-r border-[var(--border)] p-3 flex flex-col gap-0.5">
-    <div class="text-[15px] font-semibold px-2 py-3 flex items-center gap-2">
-      <i class="ti ti-microphone" style="font-size:18px"></i> TalkFlow
-    </div>
-    <div class="nav-item active rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="dictation"><i class="ti ti-microphone-2"></i>Dictation</div>
-    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="history"><i class="ti ti-history"></i>History</div>
-    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="style"><i class="ti ti-typography"></i>Style</div>
-    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="dictionary"><i class="ti ti-book-2"></i>Dictionary</div>
-    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="snippets"><i class="ti ti-scissors"></i>Snippets</div>
-    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="transforms"><i class="ti ti-wand"></i>Transforms</div>
-    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="command_mode"><i class="ti ti-terminal-2"></i>Command Mode</div>
-    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="notetaker"><i class="ti ti-device-tv"></i>Notetaker</div>
-    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="registry"><i class="ti ti-adjustments"></i>Model Registry</div>
-    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="settings"><i class="ti ti-settings"></i>Settings</div>
+<body class="flex flex-col h-screen overflow-hidden text-sm">
+  <div id="titlebar" class="pywebview-drag-region">
+    <button id="tb-collapse" class="tb-btn" title="Collapse sidebar" onclick="toggleSidebarCollapse()"><i class="ti ti-layout-sidebar"></i></button>
+    <div id="tb-title"><i class="ti ti-microphone" style="font-size:14px"></i> TalkFlow</div>
+    <div class="tb-spacer"></div>
+    <button id="tb-lang" class="tb-btn tb-lang-btn" title="Interface language" onclick="toggleLanguage()">EN</button>
+    <button class="tb-btn" title="Theme" onclick="toggleTheme()"><i id="tb-theme-icon" class="ti ti-moon"></i></button>
+    <button class="tb-btn" title="Minimize" onclick="pywebview.api.minimize_main_window()"><i class="ti ti-minus"></i></button>
+    <button class="tb-btn" id="tb-maximize-btn" title="Maximize" onclick="toggleMaximize()"><i class="ti ti-square"></i></button>
+    <button class="tb-btn tb-close" title="Close" onclick="pywebview.api.hide_main_window()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="flex flex-1 min-h-0">
+  <nav id="sidebar" class="w-56 shrink-0 bg-[var(--bg)] p-3 flex flex-col gap-0.5">
+    <div class="nav-item active rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="dictation"><i class="ti ti-microphone-2"></i><span class="nav-label" data-i18n="nav.dictation">Dictation</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="history"><i class="ti ti-history"></i><span class="nav-label" data-i18n="nav.history">History</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="insights"><i class="ti ti-chart-bar"></i><span class="nav-label" data-i18n="nav.insights">Insights</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="style"><i class="ti ti-typography"></i><span class="nav-label" data-i18n="nav.style">Style</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="dictionary"><i class="ti ti-book-2"></i><span class="nav-label" data-i18n="nav.dictionary">Dictionary</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="snippets"><i class="ti ti-scissors"></i><span class="nav-label" data-i18n="nav.snippets">Snippets</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="scratchpad"><i class="ti ti-notes"></i><span class="nav-label" data-i18n="nav.scratchpad">Scratchpad</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="transforms"><i class="ti ti-wand"></i><span class="nav-label" data-i18n="nav.transforms">Transforms</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="command_mode"><i class="ti ti-terminal-2"></i><span class="nav-label" data-i18n="nav.command_mode">Command Mode</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="notetaker"><i class="ti ti-device-tv"></i><span class="nav-label" data-i18n="nav.notetaker">Notetaker</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="registry"><i class="ti ti-adjustments"></i><span class="nav-label" data-i18n="nav.registry">Model Registry</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="settings"><i class="ti ti-settings"></i><span class="nav-label" data-i18n="nav.settings">Settings</span></div>
   </nav>
 
-  <main class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-8">
+  <main class="content-panel flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-8">
     <section id="tab-dictation">
-      <h1 class="section-title">Dictation</h1>
-      <p class="section-sub">Press your configured hotkey anywhere to dictate. The floating pill in the corner of your screen shows live status.</p>
-      <div id="dictation-settings-preview" class="card p-4 text-sm"></div>
+      <div class="dict-wrap">
+        <div class="dict-greeting" id="dict-greeting"><span id="dict-greeting-prefix"></span> <span class="dict-hotkey-pill" id="dict-greeting-hotkey">…</span></div>
+
+        <div class="dict-banner" onmouseenter="dictBanner.pause()" onmouseleave="dictBanner.resume()">
+          <img id="dict-banner-img" alt=""
+               onerror="this.style.display='none'; document.getElementById('dict-banner-orbs').style.display='block';"
+               onload="this.style.display='block'; document.getElementById('dict-banner-orbs').style.display='none';" />
+          <div class="dict-banner-orbs" id="dict-banner-orbs" style="display:none">
+            <div class="dict-orb" style="left:62%; top:18%;"><i class="ti ti-brand-whatsapp"></i></div>
+            <div class="dict-orb" style="left:78%; top:54%;"><i class="ti ti-brand-slack"></i></div>
+            <div class="dict-orb" style="left:70%; top:82%;"><i class="ti ti-mail"></i></div>
+            <div class="dict-orb" style="left:88%; top:22%;"><i class="ti ti-sparkles"></i></div>
+            <div class="dict-orb" style="left:90%; top:72%;"><i class="ti ti-brand-google"></i></div>
+          </div>
+          <div class="dict-banner-content">
+            <div class="dict-banner-title" id="dict-banner-title"></div>
+            <div class="dict-banner-sub" id="dict-banner-sub"></div>
+            <button class="dict-banner-cta" id="dict-banner-cta" onclick="dictBanner.goTab()"></button>
+          </div>
+          <div class="dict-banner-dots" id="dict-banner-dots"></div>
+        </div>
+
+        <div class="dict-stats-row">
+          <div class="dict-stat-card">
+            <div class="dict-stat-label">Words dictated</div>
+            <div class="dict-stat-value" id="dict-stat-words">&mdash;</div>
+          </div>
+          <div class="dict-stat-card">
+            <div class="dict-stat-label">Avg WPM</div>
+            <div class="dict-stat-value" id="dict-stat-wpm">&mdash;</div>
+          </div>
+          <div class="dict-stat-card">
+            <div class="dict-stat-label">Day streak</div>
+            <div class="dict-stat-value" id="dict-stat-streak">&mdash;</div>
+          </div>
+        </div>
+
+        <h2 class="section-title" data-i18n="title.dictation">Dictation</h2>
+        <p class="section-sub" data-i18n="sub.dictation">Press your configured hotkey anywhere to dictate. The floating pill in the corner of your screen shows live status.</p>
+        <div id="dictation-settings-preview" class="card dict-config-card p-4 text-sm" style="position:relative"></div>
+        <div id="dict-mode-popover" class="dict-mode-popover">
+          <div class="dict-mode-option" data-mode="hold" onclick="setTriggerModeQuick('hold')">
+            <i class="ti ti-hand-stop"></i>
+            <div><div class="label" data-i18n="mode.hold.label">Hold to talk</div><div class="sub" data-i18n="mode.hold.sub">Press and hold, release to stop</div></div>
+          </div>
+          <div class="dict-mode-option" data-mode="toggle" onclick="setTriggerModeQuick('toggle')">
+            <i class="ti ti-repeat"></i>
+            <div><div class="label" data-i18n="mode.toggle.label">Tap to toggle</div><div class="sub" data-i18n="mode.toggle.sub">Tap twice to start, once to stop</div></div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mt-8 mb-2">
+          <h2 class="text-[15px] font-semibold" data-i18n="dict.recent_title">Recent dictations</h2>
+          <span class="dict-view-all" data-i18n="dict.view_all" onclick="document.querySelector('.nav-item[data-tab=history]').click()">View all</span>
+        </div>
+        <div id="dict-recent-list" class="card divide-y divide-[var(--border)]"></div>
+      </div>
     </section>
 
+    <div id="lang-modal-backdrop" class="lang-modal-backdrop" onclick="if(event.target===this) closeLangModal()">
+      <div class="lang-modal">
+        <div class="lang-modal-head">
+          <div class="lang-modal-title" data-i18n="lang.modal.title">Dictation languages</div>
+          <div class="lang-modal-sub" data-i18n="lang.modal.sub">Choose the languages you want to dictate in.<br/>TalkFlow detects which one you spoke on every dictation.</div>
+          <label class="lang-modal-autodetect">
+            <span data-i18n="lang.modal.autodetect">Auto-detect</span>
+            <span class="switch"><input type="checkbox" id="lang-autodetect-toggle" onchange="onAutoDetectToggle()" /><span class="switch-track"></span></span>
+          </label>
+        </div>
+        <div class="lang-modal-body">
+          <div class="lang-modal-main">
+            <div class="lang-search-wrap">
+              <i class="ti ti-search"></i>
+              <input id="lang-search" data-i18n-placeholder="lang.modal.search_placeholder" placeholder="Search for any language" oninput="renderLangGrid()" />
+            </div>
+            <div id="lang-grid" class="lang-grid"></div>
+          </div>
+          <div class="lang-modal-side">
+            <div class="lang-modal-side-title" data-i18n="lang.modal.selected">Selected</div>
+            <div id="lang-selected-list"></div>
+          </div>
+        </div>
+        <div class="lang-modal-foot">
+          <button class="btn btn-primary" data-i18n="lang.modal.save" onclick="saveLangModal()">Save and close</button>
+        </div>
+      </div>
+    </div>
+
     <section id="tab-history" class="hidden">
-      <h1 class="section-title">History</h1>
-      <p class="section-sub">Your past dictations. Edit a transcript and save to teach the Dictionary new terms.</p>
-      <input id="history-search" placeholder="Search transcripts…" class="w-full px-3 py-2 mb-4" />
-      <div id="history-list" class="space-y-2"></div>
+      <div class="dict-wrap">
+      <h1 class="section-title" data-i18n="title.history">History</h1>
+      <p class="section-sub" data-i18n="sub.history">Your past dictations. Edit a transcript and save to teach the Dictionary new terms.</p>
+
+      <div class="dict-banner" onmouseenter="histBanner.pause()" onmouseleave="histBanner.resume()">
+        <img id="hist-banner-img" alt=""
+             onerror="this.style.display='none'; document.getElementById('hist-banner-orbs').style.display='block';"
+             onload="this.style.display='block'; document.getElementById('hist-banner-orbs').style.display='none';" />
+        <div class="dict-banner-orbs" id="hist-banner-orbs" style="display:none">
+          <div class="dict-orb" style="left:62%; top:18%;"><i class="ti ti-brand-whatsapp"></i></div>
+          <div class="dict-orb" style="left:78%; top:54%;"><i class="ti ti-brand-slack"></i></div>
+          <div class="dict-orb" style="left:70%; top:82%;"><i class="ti ti-mail"></i></div>
+          <div class="dict-orb" style="left:88%; top:22%;"><i class="ti ti-sparkles"></i></div>
+          <div class="dict-orb" style="left:90%; top:72%;"><i class="ti ti-brand-google"></i></div>
+        </div>
+        <div class="dict-banner-content">
+          <div class="dict-banner-title" id="hist-banner-title"></div>
+          <div class="dict-banner-sub" id="hist-banner-sub"></div>
+          <button class="dict-banner-cta" id="hist-banner-cta" onclick="histBanner.goTab()"></button>
+        </div>
+        <div class="dict-banner-dots" id="hist-banner-dots"></div>
+      </div>
+
+      <div class="scratch-search-wrap mb-4 mt-4" style="max-width:420px">
+        <i class="ti ti-search"></i>
+        <input id="history-search" data-i18n-placeholder="history.search_placeholder" placeholder="Search transcripts…" />
+      </div>
+      <div id="history-list" class="card divide-y divide-[var(--border)]"></div>
+      </div>
+    </section>
+
+    <section id="tab-insights" class="hidden">
+      <div class="insights-wrap">
+      <h1 class="section-title" data-i18n="title.insights">Insights</h1>
+      <p class="section-sub mb-3" data-i18n="sub.insights">Computed from your local dictation history — nothing is sent anywhere, nothing is benchmarked against other users.</p>
+
+      <div class="insights-subtabs">
+        <span class="insights-subtab active" data-view="usage" data-i18n="insights.tab_usage" onclick="setInsightsView('usage')">Your usage</span>
+        <span class="insights-subtab" data-view="voice" data-i18n="insights.tab_voice" onclick="setInsightsView('voice')">Your voice</span>
+      </div>
+
+      <div id="insights-view-usage">
+        <div class="insights-row">
+          <div class="insight-card">
+            <div class="insight-label" data-i18n="insights.wpm">Words per minute</div>
+            <div class="wpm-gauge-wrap">
+              <svg viewBox="0 0 120 68" class="wpm-gauge">
+                <path d="M10,64 A50,50 0 0,1 110,64" fill="none" stroke="var(--border)" stroke-width="10" stroke-linecap="round"/>
+                <path id="wpm-arc" d="M10,64 A50,50 0 0,1 110,64" fill="none" stroke="var(--accent-teal)" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 157"/>
+              </svg>
+              <div class="wpm-value"><span id="ins-wpm">0</span><div class="wpm-sub" data-i18n="insights.avg_wpm">avg WPM</div></div>
+            </div>
+          </div>
+          <div class="insight-card">
+            <div class="insight-big" id="ins-fixes">0</div>
+            <div class="insight-label" data-i18n="insights.fixes">Fixes made</div>
+            <div class="insight-divider"></div>
+            <div class="dict-growth-row"><i class="ti ti-sparkles"></i><span id="ins-learned">0</span> <span data-i18n="insights.auto_learned">auto-learned</span></div>
+            <div class="dict-growth-row"><i class="ti ti-pencil"></i><span id="ins-manual">0</span> <span data-i18n="insights.added_manually">added manually</span></div>
+          </div>
+          <div class="insight-card">
+            <div class="insight-big" id="ins-total-words">0</div>
+            <div class="insight-label" data-i18n="insights.total_words">Total words dictated</div>
+            <div class="insight-foot" id="ins-total-sessions">0 dictations</div>
+          </div>
+        </div>
+
+        <div class="insights-row insights-row-2">
+          <div class="insight-card">
+            <div class="insight-label" data-i18n="insights.desktop_usage">Desktop usage</div>
+            <div id="ins-apps" class="app-usage-list"></div>
+          </div>
+          <div class="insight-card">
+            <div class="flex items-center justify-between">
+              <div class="insight-label" id="ins-streak-label">0 day streak</div>
+              <div class="insight-foot" id="ins-streak-longest">Longest: 0</div>
+            </div>
+            <div class="ins-calendar-wrap">
+              <button class="ins-cal-nav" onclick="scrollInsightsCalendar(-1)"><i class="ti ti-chevron-left"></i></button>
+              <div class="ins-calendar-scroll" id="ins-calendar-scroll">
+                <div id="ins-cal-months" class="ins-cal-months"></div>
+                <div class="ins-calendar-body">
+                  <div class="ins-weekday-col">
+                    <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+                  </div>
+                  <div id="ins-calendar" class="ins-calendar"></div>
+                </div>
+              </div>
+              <button class="ins-cal-nav" onclick="scrollInsightsCalendar(1)"><i class="ti ti-chevron-right"></i></button>
+            </div>
+            <div class="ins-cal-legend">
+              <span data-i18n="insights.less">Less</span>
+              <span class="ins-day" data-level="0"></span><span class="ins-day" data-level="1"></span>
+              <span class="ins-day" data-level="2"></span><span class="ins-day" data-level="3"></span>
+              <span data-i18n="insights.more">More</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="insights-view-voice" class="hidden">
+        <div class="insight-card">
+          <div class="insight-label mb-2" data-i18n="insights.language_breakdown">Language breakdown</div>
+          <div id="ins-languages" class="app-usage-list"></div>
+        </div>
+      </div>
+      </div>
     </section>
 
     <section id="tab-style" class="hidden">
-      <h1 class="section-title">Style</h1>
-      <p class="section-sub">Formality presets, applied automatically based on which app has focus.</p>
-      <div id="preset-list" class="card divide-y divide-[var(--border)] mb-4"></div>
-      <div class="flex flex-wrap gap-2 mb-10">
+      <div class="dict-wrap">
+      <h1 class="section-title" data-i18n="title.style">Style</h1>
+      <p class="section-sub mb-3" data-i18n="sub.style">Formality presets, applied automatically based on which app has focus.</p>
+
+      <div class="insights-subtabs" id="style-category-tabs"></div>
+
+      <div class="dict-banner" style="height:110px">
+        <div class="dict-banner-content" style="max-width:600px">
+          <div class="dict-banner-title" id="style-banner-title"></div>
+          <div class="dict-banner-sub" id="style-banner-sub"></div>
+        </div>
+        <div class="style-banner-apps" id="style-banner-apps"></div>
+      </div>
+
+      <div id="style-cards" class="style-cards-row"></div>
+      <div id="style-app-manage" class="mb-8"></div>
+
+      <h2 class="text-[15px] font-semibold mb-1" data-i18n="style.custom_presets">Custom presets</h2>
+      <div id="custom-preset-list" class="card divide-y divide-[var(--border)] mb-3"></div>
+      <div class="flex flex-wrap gap-2">
         <input id="preset-name" placeholder="Preset name" class="px-3 py-2 w-40" />
         <input id="preset-instruction" placeholder="Instruction" class="px-3 py-2 flex-1 min-w-[160px]" />
         <button onclick="createPreset()" class="btn btn-primary shrink-0">Add preset</button>
       </div>
-      <h2 class="text-[15px] font-semibold mb-1">Per-app assignment</h2>
-      <p class="section-sub" style="margin-bottom:12px">Assign a preset to a specific app by its process name.</p>
-      <div class="flex flex-wrap gap-2 mb-4">
-        <input id="app-process" placeholder="process name, e.g. slack.exe" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <select id="app-preset" class="px-3 py-2"></select>
-        <button onclick="setAppAssignment()" class="btn btn-primary shrink-0">Assign</button>
       </div>
-      <div id="app-assignment-list" class="card divide-y divide-[var(--border)]"></div>
     </section>
 
     <section id="tab-dictionary" class="hidden">
-      <h1 class="section-title">Dictionary</h1>
-      <p class="section-sub">Names, jargon, and acronyms that bias speech recognition and stay consistently spelled.</p>
-      <div class="flex flex-wrap gap-2 mb-4">
-        <input id="dict-term" placeholder="name, jargon, acronym…" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <button onclick="addDictEntry()" class="btn btn-primary shrink-0">Add</button>
+      <div class="dict-wrap">
+      <div class="flex items-center justify-between mb-1">
+        <h1 class="section-title mb-0" data-i18n="title.dictionary">Dictionary</h1>
+        <button class="btn btn-primary" onclick="focusDictAddInput()" data-i18n="dict.add_new">Add new</button>
+      </div>
+      <p class="section-sub mb-3" data-i18n="sub.dictionary">Names, jargon, and acronyms that bias speech recognition and stay consistently spelled.</p>
+
+      <div class="flex items-center justify-between">
+        <div class="insights-subtabs" id="dict-filter-tabs" style="border-bottom:none; margin-bottom:0;"></div>
+        <div class="flex items-center gap-1">
+          <div class="toolbar-search-wrap" id="dict-search-wrap">
+            <div class="scratch-search-wrap">
+              <i class="ti ti-search"></i>
+              <input id="dict-search" oninput="renderDictList()" data-i18n-placeholder="dict.search_placeholder" placeholder="Search…" />
+            </div>
+          </div>
+          <span class="toolbar-icon-btn" onclick="toggleDictSearch()" title="Search"><i class="ti ti-search"></i></span>
+          <span class="toolbar-icon-btn" onclick="toggleDictSort()" title="Sort"><i id="dict-sort-icon" class="ti ti-sort-descending-2"></i></span>
+          <span class="toolbar-icon-btn" onclick="loadDictionary()" title="Refresh"><i class="ti ti-refresh"></i></span>
+        </div>
+      </div>
+      <div style="border-bottom:1px solid var(--border); margin: 10px 0 16px;"></div>
+
+      <div id="dict-banner" class="dict-banner dict-banner-tall">
+        <div class="dict-banner-close" onclick="dismissDictBanner()"><i class="ti ti-x"></i></div>
+        <div class="dict-banner-content">
+          <div class="dict-banner-title" data-i18n="dict.banner_title">Spells it the way you do.</div>
+          <div class="dict-banner-sub" data-i18n="dict.banner_sub">Correct a spelling once, or add it here manually, so your personal terms, company jargon, or uncommon names are spelled right in every dictation.</div>
+          <div class="dict-pill-row" id="dict-banner-pills"></div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mb-4 mt-4">
+        <input id="dict-term" data-i18n-placeholder="dict.input_placeholder" placeholder="name, jargon, acronym…" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <button onclick="addDictEntry()" class="btn btn-primary shrink-0" data-i18n="dict.add">Add</button>
       </div>
       <div id="dict-list" class="card divide-y divide-[var(--border)]"></div>
+      </div>
     </section>
 
     <section id="tab-snippets" class="hidden">
-      <h1 class="section-title">Snippets</h1>
-      <p class="section-sub">A spoken trigger expands to saved text during dictation. A few common ones are included by default.</p>
-      <div class="flex flex-wrap gap-2 mb-4">
-        <input id="snip-trigger" placeholder="spoken trigger" class="px-3 py-2 w-40" />
-        <input id="snip-expansion" placeholder="expansion text" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <button onclick="addSnippet()" class="btn btn-primary shrink-0">Add</button>
+      <div class="dict-wrap">
+      <div class="flex items-center justify-between mb-1">
+        <h1 class="section-title mb-0" data-i18n="title.snippets">Snippets</h1>
+        <button class="btn btn-primary" onclick="focusSnipAddInput()" data-i18n="snip.add_new">Add new</button>
+      </div>
+      <p class="section-sub mb-3" data-i18n="sub.snippets">A spoken trigger expands to saved text during dictation. A few common ones are included by default.</p>
+
+      <div class="flex items-center justify-between">
+        <div class="insights-subtabs" id="snip-filter-tabs" style="border-bottom:none; margin-bottom:0;"></div>
+        <div class="flex items-center gap-1">
+          <div class="toolbar-search-wrap" id="snip-search-wrap">
+            <div class="scratch-search-wrap">
+              <i class="ti ti-search"></i>
+              <input id="snip-search" oninput="renderSnipList()" data-i18n-placeholder="dict.search_placeholder" placeholder="Search…" />
+            </div>
+          </div>
+          <span class="toolbar-icon-btn" onclick="toggleSnipSearch()" title="Search"><i class="ti ti-search"></i></span>
+          <span class="toolbar-icon-btn" onclick="toggleSnipSort()" title="Sort"><i id="snip-sort-icon" class="ti ti-sort-descending-2"></i></span>
+          <span class="toolbar-icon-btn" onclick="loadSnippets()" title="Refresh"><i class="ti ti-refresh"></i></span>
+        </div>
+      </div>
+      <div style="border-bottom:1px solid var(--border); margin: 10px 0 16px;"></div>
+
+      <div id="snip-banner" class="dict-banner dict-banner-tall">
+        <div class="dict-banner-close" onclick="dismissSnipBanner()"><i class="ti ti-x"></i></div>
+        <div class="dict-banner-content">
+          <div class="dict-banner-title" data-i18n="snip.banner_title">Say less, write more.</div>
+          <div class="dict-banner-sub" data-i18n="snip.banner_sub">A spoken trigger expands into full saved text during dictation - say "btw" and get "by the way", automatically.</div>
+          <div class="dict-pill-row" id="snip-banner-pills"></div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mb-4 mt-4">
+        <input id="snip-trigger" data-i18n-placeholder="snip.trigger_placeholder" placeholder="spoken trigger" class="px-3 py-2 w-40" />
+        <input id="snip-expansion" data-i18n-placeholder="snip.expansion_placeholder" placeholder="expansion text" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <button onclick="addSnippet()" class="btn btn-primary shrink-0" data-i18n="dict.add">Add</button>
       </div>
       <div id="snip-list" class="card divide-y divide-[var(--border)]"></div>
+      </div>
+    </section>
+
+    <section id="tab-scratchpad" class="hidden">
+      <div class="dict-wrap">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <h1 class="section-title" data-i18n="title.scratchpad">Scratchpad</h1>
+        <label class="flex items-center gap-2 text-[13px] text-[var(--text-secondary)] cursor-pointer select-none">
+          <span data-i18n="scratch.add_to_pill">Add to floating pill</span>
+          <span class="switch"><input type="checkbox" id="scratch-flowbar-toggle" onchange="toggleScratchpadInPill()" /><span class="switch-track"></span></span>
+        </label>
+      </div>
+      <p class="section-sub mb-4" data-i18n="sub.scratchpad">Freeform notes you can dictate into and come back to later — separate from History, which logs what was inserted elsewhere.</p>
+      <div class="scratch-shell">
+        <div class="scratch-list-pane">
+          <div class="scratch-list-head">
+            <div class="scratch-search-wrap">
+              <i class="ti ti-search"></i>
+              <input id="scratch-search" data-i18n-placeholder="scratch.search_placeholder" placeholder="Search notes…" oninput="searchScratchpad()" />
+            </div>
+            <button onclick="newScratchpadNote()" class="scratch-icon-btn" title="New note"><i class="ti ti-plus"></i></button>
+          </div>
+          <div id="scratch-list" class="scratch-list"></div>
+        </div>
+        <div id="scratch-editor" class="scratch-editor-pane hidden">
+          <input id="scratch-title" data-i18n-placeholder="scratch.untitled" placeholder="Untitled" class="scratch-title-input" />
+          <textarea id="scratch-content" data-i18n-placeholder="scratch.content_placeholder" placeholder="Start typing or dictate…" class="scratch-content-area"></textarea>
+          <div class="scratch-editor-foot">
+            <span class="scratch-updated" id="scratch-updated"></span>
+            <button onclick="deleteScratchpadNote()" class="scratch-icon-btn scratch-icon-btn-danger" title="Delete note"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>
+        <div id="scratch-empty" class="scratch-editor-pane scratch-empty-state">
+          <i class="ti ti-notes"></i>
+          <p data-i18n="scratch.empty_state">Select a note, or create a new one</p>
+        </div>
+      </div>
+      </div>
     </section>
 
     <section id="tab-transforms" class="hidden">
-      <h1 class="section-title">Transforms</h1>
-      <p class="section-sub">Rewrites text already in a focused field, independent of live dictation.</p>
-      <div class="card divide-y divide-[var(--border)] mb-4">
-        <div class="hotkey-row px-4">
-          <div><div class="hotkey-row-label">Polish</div><div class="hotkey-row-sub">Fix grammar and tighten wording, keep meaning intact</div></div>
-          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-polish"></span><button class="btn btn-secondary" onclick="changeMainHotkey('transform_polish_hotkey','th-polish')">Change</button></div>
-        </div>
-        <div class="hotkey-row px-4">
-          <div><div class="hotkey-row-label">Prompt Engineer</div><div class="hotkey-row-sub">Rewrite as a clear, structured AI prompt</div></div>
-          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-pe"></span><button class="btn btn-secondary" onclick="changeMainHotkey('transform_prompt_engineer_hotkey','th-pe')">Change</button></div>
+      <div class="dict-wrap">
+      <h1 class="section-title" data-i18n="title.transforms">Transforms</h1>
+      <p class="section-sub mb-3" data-i18n="sub.transforms">Rewrites text already in a focused field, independent of live dictation.</p>
+
+      <div class="dict-banner" style="height:100px">
+        <div class="dict-banner-content">
+          <div class="dict-banner-title" data-i18n="transforms.banner_title">Rewrite text you've already written</div>
+          <div class="dict-banner-sub" data-i18n="transforms.banner_sub">Select text in any app, hit a hotkey, and TalkFlow rewrites it in place - no dictation needed.</div>
         </div>
       </div>
-      <h2 class="text-[15px] font-semibold mb-1">Custom transforms</h2>
-      <p class="section-sub" style="margin-bottom:12px">Up to 8, each with its own hotkey. Restart TalkFlow after adding or removing one.</p>
+
+      <div class="card divide-y divide-[var(--border)] mb-4 mt-4">
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label" data-i18n="transforms.polish_name">Polish</div><div class="hotkey-row-sub" data-i18n="transforms.polish_sub">Fix grammar and tighten wording, keep meaning intact</div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-polish"></span><button class="btn btn-secondary" onclick="changeMainHotkey('transform_polish_hotkey','th-polish')" data-i18n="btn.change">Change</button></div>
+        </div>
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label" data-i18n="transforms.pe_name">Prompt Engineer</div><div class="hotkey-row-sub" data-i18n="transforms.pe_sub">Rewrite as a clear, structured AI prompt</div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-pe"></span><button class="btn btn-secondary" onclick="changeMainHotkey('transform_prompt_engineer_hotkey','th-pe')" data-i18n="btn.change">Change</button></div>
+        </div>
+      </div>
+      <h2 class="text-[15px] font-semibold mb-1" data-i18n="transforms.custom_title">Custom transforms</h2>
+      <p class="section-sub" style="margin-bottom:12px" data-i18n="sub.transforms_custom">Up to 8, each with its own hotkey. Restart TalkFlow after adding or removing one.</p>
       <div id="custom-transform-list" class="card divide-y divide-[var(--border)] mb-4"></div>
       <div class="flex flex-wrap gap-2 items-center">
-        <input id="ct-name" placeholder="name" class="px-3 py-2 w-32" />
-        <input id="ct-instruction" placeholder="instruction (what should this transform do?)" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <span class="hotkey-chip" id="ct-hotkey-display">No hotkey</span>
-        <button class="btn btn-secondary shrink-0" onclick="captureNewTransformHotkey()">Set hotkey</button>
-        <button onclick="createCustomTransform()" class="btn btn-primary shrink-0">Add</button>
+        <input id="ct-name" data-i18n-placeholder="transforms.name_placeholder" placeholder="name" class="px-3 py-2 w-32" />
+        <input id="ct-instruction" data-i18n-placeholder="transforms.instruction_placeholder" placeholder="instruction (what should this transform do?)" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <span class="hotkey-chip" id="ct-hotkey-display" data-i18n="transforms.no_hotkey">No hotkey</span>
+        <button class="btn btn-secondary shrink-0" onclick="captureNewTransformHotkey()" data-i18n="transforms.set_hotkey">Set hotkey</button>
+        <button onclick="createCustomTransform()" class="btn btn-primary shrink-0" data-i18n="dict.add">Add</button>
+      </div>
       </div>
     </section>
 
     <section id="tab-command_mode" class="hidden">
-      <h1 class="section-title">Command Mode</h1>
-      <p class="section-sub">Spoken instructions that edit text, draft a reply, or search — no trigger phrase, requires a focused editable field.</p>
-      <div class="card divide-y divide-[var(--border)]">
-        <div class="hotkey-row px-4">
-          <div><div class="hotkey-row-label">Command Mode</div><div class="hotkey-row-sub">Hold, speak an instruction, release</div></div>
-          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-cmd"></span><button class="btn btn-secondary" onclick="changeMainHotkey('command_mode_hotkey','th-cmd')">Change</button></div>
+      <div class="dict-wrap">
+      <h1 class="section-title" data-i18n="title.command_mode">Command Mode</h1>
+      <p class="section-sub mb-3" data-i18n="sub.command_mode">Spoken instructions that edit text, draft a reply, or search — no trigger phrase, requires a focused editable field.</p>
+
+      <div class="dict-banner" style="height:100px">
+        <div class="dict-banner-content">
+          <div class="dict-banner-title" data-i18n="cmd.banner_title">Edit or search with your voice</div>
+          <div class="dict-banner-sub" data-i18n="cmd.banner_sub">Hold the hotkey, say what you want changed or searched for, release - no trigger phrase needed.</div>
         </div>
+      </div>
+
+      <div class="card divide-y divide-[var(--border)] mt-4">
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label" data-i18n="cmd.row_label">Command Mode</div><div class="hotkey-row-sub" data-i18n="cmd.row_sub">Hold, speak an instruction, release</div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-cmd"></span><button class="btn btn-secondary" onclick="changeMainHotkey('command_mode_hotkey','th-cmd')" data-i18n="btn.change">Change</button></div>
+        </div>
+      </div>
       </div>
     </section>
 
     <section id="tab-notetaker" class="hidden">
-      <h1 class="section-title">Notetaker</h1>
-      <p class="section-sub">Start or stop a meeting recording from the tray icon (mic + system audio). Least-tested feature — verify loopback actually captures your meeting app's audio before relying on it.</p>
-      <div id="meeting-list" class="space-y-2"></div>
+      <div class="dict-wrap">
+      <h1 class="section-title" data-i18n="title.notetaker">Notetaker</h1>
+      <p class="section-sub mb-3" data-i18n="sub.notetaker">Start or stop a meeting recording from the tray icon (mic + system audio). Least-tested feature — verify loopback actually captures your meeting app's audio before relying on it.</p>
+
+      <div class="dict-banner" style="height:100px">
+        <div class="dict-banner-content">
+          <div class="dict-banner-title" data-i18n="note.banner_title">Let meetings take their own notes</div>
+          <div class="dict-banner-sub" data-i18n="note.banner_sub">Toggle recording from the tray icon - mic + system audio are transcribed and summarized automatically.</div>
+        </div>
+      </div>
+
+      <div id="meeting-list" class="space-y-2 mt-4"></div>
+      </div>
     </section>
 
     <section id="tab-registry" class="hidden">
-      <h1 class="section-title">Model Registry</h1>
-      <p class="section-sub">Every pipeline stage's provider is swappable — nothing is hardcoded. "Test" tries a real request before anything is saved, so a bad key or URL can't break dictation.</p>
+      <div class="dict-wrap">
+      <h1 class="section-title" data-i18n="title.registry">Model Registry</h1>
+      <p class="section-sub" data-i18n="sub.registry">Every pipeline stage's provider is swappable — nothing is hardcoded. "Test" tries a real request before anything is saved, so a bad key or URL can't break dictation.</p>
 
-      <h2 class="text-[15px] font-semibold mb-2">ASR &mdash; speech to text</h2>
+      <h2 class="text-[15px] font-semibold mb-2" data-i18n="registry.asr_title">ASR &mdash; speech to text</h2>
       <div id="registry-asr" class="card divide-y divide-[var(--border)] mb-3"></div>
       <div class="flex flex-wrap gap-2 mb-1">
         <input id="asr-name" placeholder="name e.g. OpenRouter Nemotron" class="px-3 py-2 flex-1 min-w-[140px]" />
@@ -184,11 +835,11 @@
         <input id="asr-base-url" placeholder="base_url" class="px-3 py-2 flex-1 min-w-[160px]" />
         <input id="asr-model-id" placeholder="model id" class="px-3 py-2 flex-1 min-w-[140px]" />
         <input id="asr-api-key" placeholder="API key (optional - local providers need none)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <button onclick="testAndSaveRegistry('asr')" class="btn btn-primary shrink-0">Test &amp; Save</button>
+        <button onclick="testAndSaveRegistry('asr')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
       </div>
       <div id="asr-test-result" class="text-sm mb-6"></div>
 
-      <h2 class="text-[15px] font-semibold mb-2">Cleanup &mdash; text to text, OpenAI-compatible (local or cloud)</h2>
+      <h2 class="text-[15px] font-semibold mb-2" data-i18n="registry.cleanup_title">Cleanup &mdash; text to text, OpenAI-compatible (local or cloud)</h2>
       <div id="registry-cleanup" class="card divide-y divide-[var(--border)] mb-3"></div>
       <div class="flex flex-wrap gap-2 mb-1">
         <input id="cleanup-name" placeholder="name e.g. Ollama Cloud" class="px-3 py-2 flex-1 min-w-[140px]" />
@@ -196,55 +847,486 @@
         <input id="cleanup-base-url" placeholder="base_url e.g. https://ollama.com" class="px-3 py-2 flex-1 min-w-[160px]" />
         <input id="cleanup-model-id" placeholder="model id e.g. gemma4:31b" class="px-3 py-2 flex-1 min-w-[140px]" />
         <input id="cleanup-api-key" placeholder="API key (optional - local providers need none)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <button onclick="testAndSaveRegistry('cleanup')" class="btn btn-primary shrink-0">Test &amp; Save</button>
+        <button onclick="testAndSaveRegistry('cleanup')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
       </div>
       <div id="cleanup-test-result" class="text-sm"></div>
+      </div>
     </section>
 
     <section id="tab-settings" class="hidden">
-      <h1 class="section-title">Settings</h1>
+      <div class="dict-wrap">
+      <h1 class="section-title" data-i18n="title.settings">Settings</h1>
 
-      <h2 class="text-[15px] font-semibold mb-1 mt-2">Shortcuts</h2>
-      <p class="section-sub" style="margin-bottom:8px">Click Change, then press the keys you want &mdash; no typing required.</p>
+      <h2 class="text-[15px] font-semibold mb-1 mt-2" data-i18n="settings.shortcuts_title">Shortcuts</h2>
+      <p class="section-sub" style="margin-bottom:8px" data-i18n="sub.settings_shortcuts">Click Change, then press the keys you want &mdash; no typing required.</p>
       <div class="card divide-y divide-[var(--border)] mb-8">
         <div class="hotkey-row px-4">
-          <div><div class="hotkey-row-label">Dictate</div><div class="hotkey-row-sub" id="s-trigger-mode-label"></div></div>
-          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-dictate"></span><button class="btn btn-secondary" onclick="changeMainHotkey('hotkey','th-dictate')">Change</button></div>
+          <div><div class="hotkey-row-label" data-i18n="settings.dictate_label">Dictate</div><div class="hotkey-row-sub" id="s-trigger-mode-label"></div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-dictate"></span><button class="btn btn-secondary" onclick="changeMainHotkey('hotkey','th-dictate')" data-i18n="btn.change">Change</button></div>
         </div>
       </div>
 
-      <h2 class="text-[15px] font-semibold mb-3">General</h2>
+      <h2 class="text-[15px] font-semibold mb-3" data-i18n="settings.general_title">General</h2>
       <div class="card p-4 space-y-4 max-w-lg">
         <label class="block">
-          <div class="font-medium mb-1">Trigger mode</div>
+          <div class="font-medium mb-1" data-i18n="settings.trigger_mode_label">Trigger mode</div>
           <select id="s-trigger-mode" class="w-full px-3 py-2">
-            <option value="hold">Hold to talk</option>
-            <option value="toggle">Tap twice to start, once to stop</option>
+            <option value="hold" data-i18n="mode.hold.label">Hold to talk</option>
+            <option value="toggle" data-i18n="mode.toggle.sub">Tap twice to start, once to stop</option>
           </select>
         </label>
         <label class="block">
-          <div class="font-medium mb-1">Dictation languages</div>
+          <div class="font-medium mb-1" data-i18n="settings.languages_label">Dictation languages</div>
           <input id="s-languages" placeholder="en, pt-BR" class="w-full px-3 py-2" />
-          <div class="hotkey-row-sub mt-1">Comma-separated. TalkFlow detects which one you spoke on every dictation.</div>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.languages_sub">Comma-separated. TalkFlow detects which one you spoke on every dictation.</div>
         </label>
         <label class="block">
-          <div class="font-medium mb-1">Microphone</div>
+          <div class="font-medium mb-1" data-i18n="settings.mic_label">Microphone</div>
           <select id="s-input-device" class="w-full px-3 py-2"></select>
-          <div class="hotkey-row-sub mt-1">Restart to apply.</div>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.restart_hint">Restart to apply.</div>
         </label>
-        <label class="flex items-center gap-2"><input type="checkbox" id="s-retain-history" class="w-4 h-4" /> Retain history</label>
+        <label class="flex items-center gap-2"><input type="checkbox" id="s-retain-history" class="w-4 h-4" /> <span data-i18n="settings.retain_history">Retain history</span></label>
         <label class="block">
-          <div class="flex items-center gap-2"><input type="checkbox" id="s-partial-paste" class="w-4 h-4" /> Paste while speaking</div>
-          <div class="hotkey-row-sub mt-1">Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.</div>
+          <div class="flex items-center gap-2"><input type="checkbox" id="s-partial-paste" class="w-4 h-4" /> <span data-i18n="settings.partial_paste_label">Paste while speaking</span></div>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.partial_paste_sub">Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.</div>
         </label>
-        <label class="flex items-center gap-2"><input type="checkbox" id="s-launch-at-login" class="w-4 h-4" /> Launch TalkFlow at login</label>
-        <button onclick="saveSettings()" class="btn btn-primary">Save</button>
+        <label class="flex items-center gap-2"><input type="checkbox" id="s-launch-at-login" class="w-4 h-4" /> <span data-i18n="settings.launch_at_login">Launch TalkFlow at login</span></label>
+        <button onclick="saveSettings()" class="btn btn-primary" data-i18n="settings.save">Save</button>
+      </div>
       </div>
     </section>
   </main>
+  </div>
+  <div id="mw-resize-grip" onmousedown="mwResizeMouseDown(event)" title="Drag to resize"></div>
 
 <script>
 function $(id){ return document.getElementById(id); }
+
+// ---- Theme / language / sidebar (persisted via Settings, same as every
+// other TalkFlow preference - see talkflow/config/settings.py ui_* fields) ----
+const TRANSLATIONS = {
+  en: {
+    'nav.dictation': 'Dictation', 'nav.history': 'History', 'nav.insights': 'Insights',
+    'nav.style': 'Style', 'nav.dictionary': 'Dictionary', 'nav.snippets': 'Snippets',
+    'nav.scratchpad': 'Scratchpad', 'nav.transforms': 'Transforms', 'nav.command_mode': 'Command Mode',
+    'nav.notetaker': 'Notetaker', 'nav.registry': 'Model Registry', 'nav.settings': 'Settings',
+    'title.dictation': 'Dictation', 'title.history': 'History', 'title.insights': 'Insights',
+    'title.style': 'Style', 'title.dictionary': 'Dictionary', 'title.snippets': 'Snippets',
+    'title.scratchpad': 'Scratchpad', 'title.transforms': 'Transforms', 'title.command_mode': 'Command Mode',
+    'title.notetaker': 'Notetaker', 'title.registry': 'Model Registry', 'title.settings': 'Settings',
+    'sub.dictation': 'Press your configured hotkey anywhere to dictate. The floating pill in the corner of your screen shows live status.',
+    'sub.history': 'Your past dictations. Edit a transcript and save to teach the Dictionary new terms.',
+    'sub.insights': 'Computed from your local dictation history — nothing is sent anywhere, nothing is benchmarked against other users.',
+    'sub.style': 'Formality presets, applied automatically based on which app has focus.',
+    'sub.style_assign': 'Assign a preset to a specific app by its process name.',
+    'sub.dictionary': 'Names, jargon, and acronyms that bias speech recognition and stay consistently spelled.',
+    'sub.snippets': 'A spoken trigger expands to saved text during dictation. A few common ones are included by default.',
+    'sub.scratchpad': 'Freeform notes you can dictate into and come back to later — separate from History, which logs what was inserted elsewhere.',
+    'sub.transforms': 'Rewrites text already in a focused field, independent of live dictation.',
+    'sub.transforms_custom': 'Up to 8, each with its own hotkey. Restart TalkFlow after adding or removing one.',
+    'sub.command_mode': 'Spoken instructions that edit text, draft a reply, or search — no trigger phrase, requires a focused editable field.',
+    'sub.notetaker': "Start or stop a meeting recording from the tray icon (mic + system audio). Least-tested feature — verify loopback actually captures your meeting app's audio before relying on it.",
+    'sub.registry': 'Every pipeline stage\'s provider is swappable — nothing is hardcoded. "Test" tries a real request before anything is saved, so a bad key or URL can\'t break dictation.',
+    'sub.settings_shortcuts': 'Click Change, then press the keys you want &mdash; no typing required.',
+    'dict.greeting_prefix': 'Get back into the flow with',
+    'dict.banner.try': 'Try it',
+    'dict.stat.words': 'Words dictated',
+    'dict.stat.wpm': 'Avg WPM',
+    'dict.stat.streak': 'Day streak',
+    'dict.recent_title': 'Recent dictations',
+    'dict.view_all': 'View all',
+    'dict.recent_empty': 'No dictations yet — press your hotkey anywhere to start.',
+    'menu.save_learn': 'Save &amp; learn',
+    'menu.delete': 'Delete',
+    'toast.learned_prefix': 'Learned: ',
+    'mode.hold.label': 'Hold to talk',
+    'mode.hold.sub': 'Press and hold, release to stop',
+    'mode.toggle.label': 'Tap to toggle',
+    'mode.toggle.sub': 'Tap twice to start, once to stop',
+    'lang.modal.title': 'Dictation languages',
+    'lang.modal.sub': 'Choose the languages you want to dictate in.<br/>TalkFlow detects which one you spoke on every dictation.',
+    'lang.modal.autodetect': 'Auto-detect',
+    'lang.modal.search_placeholder': 'Search for any language',
+    'lang.modal.selected': 'Selected',
+    'lang.modal.save': 'Save and close',
+    'lang.modal.no_match': 'No languages match your search.',
+    'history.empty': 'No history yet.',
+    'history.search_placeholder': 'Search transcripts…',
+    'banner.tip.dictation.title': 'Dictate anywhere you type',
+    'banner.tip.dictation.sub': "Hold your hotkey in any app, speak naturally — TalkFlow cleans it up and pastes it in.",
+    'banner.tip.transforms.title': "Rewrite text you've already written",
+    'banner.tip.transforms.sub': 'Select text in any app and hit Polish or Prompt Engineer to clean it up instantly.',
+    'banner.tip.command.title': 'Edit or search with your voice',
+    'banner.tip.command.sub': 'Hold Command Mode, say what you want changed or searched — no trigger phrase needed.',
+    'banner.tip.snippets.title': 'Say less, type more',
+    'banner.tip.snippets.sub': "Spoken shortcuts like \"btw\" or \"eta\" expand into full phrases automatically.",
+    'banner.tip.dictionary.title': 'Names spelled right, every time',
+    'banner.tip.dictionary.sub': 'Teach TalkFlow your jargon and names so they stop getting mangled.',
+    'banner.tip.notetaker.title': 'Let meetings take their own notes',
+    'banner.tip.notetaker.sub': 'Record mic + system audio and get a Summary, Key Points, and Action Items automatically.',
+    'insights.tab_usage': 'Your usage',
+    'insights.tab_voice': 'Your voice',
+    'insights.wpm': 'Words per minute',
+    'insights.avg_wpm': 'avg WPM',
+    'insights.fixes': 'Fixes made',
+    'insights.auto_learned': 'auto-learned',
+    'insights.added_manually': 'added manually',
+    'insights.total_words': 'Total words dictated',
+    'insights.desktop_usage': 'Desktop usage',
+    'insights.less': 'Less',
+    'insights.more': 'More',
+    'insights.language_breakdown': 'Language breakdown',
+    'insights.longest': 'Longest: {n}',
+    'insights.no_apps': 'No app usage recorded yet.',
+    'insights.no_languages': 'No dictations recorded yet.',
+    'style.cat_personal': 'Personal messages',
+    'style.cat_work': 'Work messages',
+    'style.cat_email': 'Email',
+    'style.cat_other': 'Other',
+    'style.cat_cleanup': 'Auto cleanup',
+    'style.beta': 'Beta',
+    'style.banner_sub': "Style formatting only applies to text TalkFlow cleans up during dictation.",
+    'style.banner_title_personal': 'This style applies in personal messengers',
+    'style.banner_title_work': 'This style applies in workplace messengers',
+    'style.banner_title_email': 'This style applies in email',
+    'style.banner_title_other': 'This style applies everywhere else',
+    'style.cleanup_banner_title': 'Auto Cleanup applies to all your dictations',
+    'style.cleanup_banner_sub': 'How much the cleanup stage edits your transcript, across every app. Restart TalkFlow after changing this.',
+    'style.loading_preview': 'Generating preview…',
+    'style.add_app_placeholder': 'process name, e.g. slack.exe',
+    'style.add_app': 'Add app',
+    'style.no_apps': 'No apps assigned yet.',
+    'style.custom_presets': 'Custom presets',
+    'style.no_custom_presets': 'No custom presets yet.',
+    'style.level_none_name': 'None',
+    'style.level_none_sub': 'Transcribes exactly what you said, including mistakes',
+    'style.level_light_name': 'Light',
+    'style.level_light_sub': 'Cleans up filler words and grammar',
+    'style.level_medium_name': 'Medium',
+    'style.level_medium_sub': 'Edits for clarity and conciseness',
+    'dict.add_new': 'Add new',
+    'dict.add': 'Add',
+    'dict.search_placeholder': 'Search…',
+    'dict.input_placeholder': 'name, jargon, acronym…',
+    'dict.banner_title': 'Spells it the way you do.',
+    'dict.banner_sub': 'Correct a spelling once, or add it here manually, so your personal terms, company jargon, or uncommon names are spelled right in every dictation.',
+    'dict.filter_all': 'All',
+    'dict.filter_manual': 'Manually added',
+    'dict.filter_learned': 'Auto-learned',
+    'dict.empty': 'No dictionary entries yet.',
+    'dict.empty_filtered': 'No entries match this filter.',
+    'menu.edit': 'Edit',
+    'snip.add_new': 'Add new',
+    'snip.trigger_placeholder': 'spoken trigger',
+    'snip.expansion_placeholder': 'expansion text',
+    'snip.banner_title': 'Say less, write more.',
+    'snip.banner_sub': 'A spoken trigger expands into full saved text during dictation - say "btw" and get "by the way", automatically.',
+    'snip.filter_all': 'All',
+    'snip.filter_builtin': 'Built-in',
+    'snip.filter_custom': 'Custom',
+    'snip.empty': 'No snippets yet.',
+    'snip.empty_filtered': 'No snippets match this filter.',
+    'snip.save': 'Save',
+    'btn.change': 'Change',
+    'scratch.add_to_pill': 'Add to floating pill',
+    'scratch.search_placeholder': 'Search notes…',
+    'scratch.untitled': 'Untitled',
+    'scratch.content_placeholder': 'Start typing or dictate…',
+    'scratch.empty_state': 'Select a note, or create a new one',
+    'transforms.banner_title': "Rewrite text you've already written",
+    'transforms.banner_sub': 'Select text in any app, hit a hotkey, and TalkFlow rewrites it in place - no dictation needed.',
+    'transforms.polish_name': 'Polish',
+    'transforms.polish_sub': 'Fix grammar and tighten wording, keep meaning intact',
+    'transforms.pe_name': 'Prompt Engineer',
+    'transforms.pe_sub': 'Rewrite as a clear, structured AI prompt',
+    'transforms.custom_title': 'Custom transforms',
+    'transforms.name_placeholder': 'name',
+    'transforms.instruction_placeholder': 'instruction (what should this transform do?)',
+    'transforms.no_hotkey': 'No hotkey',
+    'transforms.set_hotkey': 'Set hotkey',
+    'transforms.no_custom': 'No custom transforms yet.',
+    'cmd.banner_title': 'Edit or search with your voice',
+    'cmd.banner_sub': 'Hold the hotkey, say what you want changed or searched for, release - no trigger phrase needed.',
+    'cmd.row_label': 'Command Mode',
+    'cmd.row_sub': 'Hold, speak an instruction, release',
+    'note.banner_title': 'Let meetings take their own notes',
+    'note.banner_sub': 'Toggle recording from the tray icon - mic + system audio are transcribed and summarized automatically.',
+    'note.empty': 'No meetings recorded yet.',
+    'registry.asr_title': 'ASR &mdash; speech to text',
+    'registry.cleanup_title': 'Cleanup &mdash; text to text, OpenAI-compatible (local or cloud)',
+    'registry.test_save': 'Test &amp; Save',
+    'registry.active': 'Active',
+    'registry.activate': 'Activate',
+    'registry.no_entries': 'No entries yet.',
+    'settings.shortcuts_title': 'Shortcuts',
+    'settings.dictate_label': 'Dictate',
+    'settings.general_title': 'General',
+    'settings.trigger_mode_label': 'Trigger mode',
+    'settings.languages_label': 'Dictation languages',
+    'settings.languages_sub': 'Comma-separated. TalkFlow detects which one you spoke on every dictation.',
+    'settings.mic_label': 'Microphone',
+    'settings.restart_hint': 'Restart to apply.',
+    'settings.retain_history': 'Retain history',
+    'settings.partial_paste_label': 'Paste while speaking',
+    'settings.partial_paste_sub': 'Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.',
+    'settings.launch_at_login': 'Launch TalkFlow at login',
+    'settings.save': 'Save',
+    'settings.system_default': 'System default',
+  },
+  'pt-BR': {
+    'nav.dictation': 'Ditado', 'nav.history': 'Histórico', 'nav.insights': 'Estatísticas',
+    'nav.style': 'Estilo', 'nav.dictionary': 'Dicionário', 'nav.snippets': 'Atalhos',
+    'nav.scratchpad': 'Bloco de notas', 'nav.transforms': 'Transformações', 'nav.command_mode': 'Modo Comando',
+    'nav.notetaker': 'Anotador', 'nav.registry': 'Registro de Modelos', 'nav.settings': 'Configurações',
+    'title.dictation': 'Ditado', 'title.history': 'Histórico', 'title.insights': 'Estatísticas',
+    'title.style': 'Estilo', 'title.dictionary': 'Dicionário', 'title.snippets': 'Atalhos',
+    'title.scratchpad': 'Bloco de notas', 'title.transforms': 'Transformações', 'title.command_mode': 'Modo Comando',
+    'title.notetaker': 'Anotador', 'title.registry': 'Registro de Modelos', 'title.settings': 'Configurações',
+    'sub.dictation': 'Pressione o atalho configurado em qualquer lugar para ditar. A pílula flutuante no canto da tela mostra o status em tempo real.',
+    'sub.history': 'Seus ditados anteriores. Edite uma transcrição e salve para ensinar novos termos ao Dicionário.',
+    'sub.insights': 'Calculado a partir do seu histórico local de ditados — nada é enviado pra nenhum lugar, nada é comparado com outros usuários.',
+    'sub.style': 'Padrões de formalidade, aplicados automaticamente com base em qual app está em foco.',
+    'sub.style_assign': 'Atribua um padrão a um app específico pelo nome do processo.',
+    'sub.dictionary': 'Nomes, jargões e siglas que influenciam o reconhecimento de voz e mantêm a grafia consistente.',
+    'sub.snippets': 'Um gatilho falado expande pra um texto salvo durante o ditado. Alguns comuns já vêm incluídos.',
+    'sub.scratchpad': 'Notas livres pra ditar e voltar depois — separado do Histórico, que registra o que foi inserido em outros lugares.',
+    'sub.transforms': 'Reescreve um texto que já está em um campo focado, independente do ditado ao vivo.',
+    'sub.transforms_custom': 'Até 8, cada um com seu próprio atalho. Reinicie o TalkFlow depois de adicionar ou remover um.',
+    'sub.command_mode': 'Instruções faladas que editam texto, rascunham uma resposta ou pesquisam — sem frase de gatilho, precisa de um campo editável em foco.',
+    'sub.notetaker': 'Inicia ou para uma gravação de reunião pelo ícone da bandeja (microfone + áudio do sistema). Funcionalidade menos testada — confirme que a captura do áudio do seu app de reunião funciona antes de confiar nela.',
+    'sub.registry': 'O provedor de cada estágio do pipeline é trocável — nada é fixo no código. "Test" tenta uma requisição real antes de salvar, pra uma chave ou URL errada não quebrar o ditado.',
+    'sub.settings_shortcuts': 'Clique em Change e aperte as teclas desejadas &mdash; não precisa digitar.',
+    'dict.greeting_prefix': 'Volte ao fluxo com',
+    'dict.banner.try': 'Experimentar',
+    'dict.stat.words': 'Palavras ditadas',
+    'dict.stat.wpm': 'Média PPM',
+    'dict.stat.streak': 'Dias seguidos',
+    'dict.recent_title': 'Ditados recentes',
+    'dict.view_all': 'Ver todos',
+    'dict.recent_empty': 'Nenhum ditado ainda — pressione seu atalho em qualquer lugar pra começar.',
+    'menu.save_learn': 'Salvar e aprender',
+    'menu.delete': 'Excluir',
+    'toast.learned_prefix': 'Aprendido: ',
+    'mode.hold.label': 'Segurar para falar',
+    'mode.hold.sub': 'Pressione e segure, solte para parar',
+    'mode.toggle.label': 'Toque para alternar',
+    'mode.toggle.sub': 'Toque duas vezes para começar, uma para parar',
+    'lang.modal.title': 'Idiomas de ditado',
+    'lang.modal.sub': 'Escolha os idiomas em que você quer ditar.<br/>O TalkFlow detecta qual deles você falou em cada ditado.',
+    'lang.modal.autodetect': 'Detecção automática',
+    'lang.modal.search_placeholder': 'Buscar qualquer idioma',
+    'lang.modal.selected': 'Selecionados',
+    'lang.modal.save': 'Salvar e fechar',
+    'lang.modal.no_match': 'Nenhum idioma corresponde à sua busca.',
+    'history.empty': 'Nenhum histórico ainda.',
+    'history.search_placeholder': 'Buscar transcrições…',
+    'banner.tip.dictation.title': 'Dite em qualquer lugar que você digita',
+    'banner.tip.dictation.sub': 'Segure seu atalho em qualquer app, fale naturalmente — o TalkFlow limpa o texto e cola pra você.',
+    'banner.tip.transforms.title': 'Reescreva um texto que você já escreveu',
+    'banner.tip.transforms.sub': 'Selecione um texto em qualquer app e aperte Polish ou Prompt Engineer pra melhorá-lo na hora.',
+    'banner.tip.command.title': 'Edite ou pesquise com a sua voz',
+    'banner.tip.command.sub': 'Segure o Modo Comando, diga o que quer mudar ou pesquisar — sem frase de gatilho.',
+    'banner.tip.snippets.title': 'Fale menos, escreva mais',
+    'banner.tip.snippets.sub': 'Atalhos falados como "btw" ou "eta" expandem automaticamente pra frases completas.',
+    'banner.tip.dictionary.title': 'Nomes escritos certo, sempre',
+    'banner.tip.dictionary.sub': 'Ensine ao TalkFlow seus termos e nomes pra eles pararem de sair errados.',
+    'banner.tip.notetaker.title': 'Deixe as reuniões fazerem suas próprias notas',
+    'banner.tip.notetaker.sub': 'Grave microfone + áudio do sistema e receba um Resumo, Pontos-Chave e Itens de Ação automaticamente.',
+    'insights.tab_usage': 'Seu uso',
+    'insights.tab_voice': 'Sua voz',
+    'insights.wpm': 'Palavras por minuto',
+    'insights.avg_wpm': 'média PPM',
+    'insights.fixes': 'Correções feitas',
+    'insights.auto_learned': 'aprendidas automaticamente',
+    'insights.added_manually': 'adicionadas manualmente',
+    'insights.total_words': 'Total de palavras ditadas',
+    'insights.desktop_usage': 'Uso no desktop',
+    'insights.less': 'Menos',
+    'insights.more': 'Mais',
+    'insights.language_breakdown': 'Idiomas usados',
+    'insights.longest': 'Recorde: {n}',
+    'insights.no_apps': 'Nenhum uso de app registrado ainda.',
+    'insights.no_languages': 'Nenhum ditado registrado ainda.',
+    'style.cat_personal': 'Mensagens pessoais',
+    'style.cat_work': 'Mensagens de trabalho',
+    'style.cat_email': 'E-mail',
+    'style.cat_other': 'Outros',
+    'style.cat_cleanup': 'Limpeza automática',
+    'style.beta': 'Beta',
+    'style.banner_sub': 'A formatação de estilo só se aplica ao texto que o TalkFlow limpa durante o ditado.',
+    'style.banner_title_personal': 'Esse estilo se aplica em mensageiros pessoais',
+    'style.banner_title_work': 'Esse estilo se aplica em mensageiros de trabalho',
+    'style.banner_title_email': 'Esse estilo se aplica em e-mails',
+    'style.banner_title_other': 'Esse estilo se aplica em todo o resto',
+    'style.cleanup_banner_title': 'A Limpeza Automática se aplica a todos os seus ditados',
+    'style.cleanup_banner_sub': 'Quanto o estágio de limpeza edita sua transcrição, em todos os apps. Reinicie o TalkFlow depois de mudar isso.',
+    'style.loading_preview': 'Gerando prévia…',
+    'style.add_app_placeholder': 'nome do processo, ex: slack.exe',
+    'style.add_app': 'Adicionar app',
+    'style.no_apps': 'Nenhum app atribuído ainda.',
+    'style.custom_presets': 'Padrões personalizados',
+    'style.no_custom_presets': 'Nenhum padrão personalizado ainda.',
+    'style.level_none_name': 'Nenhuma',
+    'style.level_none_sub': 'Transcreve exatamente o que você disse, incluindo erros',
+    'style.level_light_name': 'Leve',
+    'style.level_light_sub': 'Limpa palavras de preenchimento e gramática',
+    'style.level_medium_name': 'Média',
+    'style.level_medium_sub': 'Edita para clareza e concisão',
+    'dict.add_new': 'Adicionar novo',
+    'dict.add': 'Adicionar',
+    'dict.search_placeholder': 'Buscar…',
+    'dict.input_placeholder': 'nome, jargão, sigla…',
+    'dict.banner_title': 'Escreve do jeito que você fala.',
+    'dict.banner_sub': 'Corrija uma grafia uma vez, ou adicione aqui manualmente, pra que seus termos pessoais, jargões da empresa ou nomes incomuns saiam certos em todo ditado.',
+    'dict.filter_all': 'Todos',
+    'dict.filter_manual': 'Adicionados manualmente',
+    'dict.filter_learned': 'Aprendidos automaticamente',
+    'dict.empty': 'Nenhuma entrada no dicionário ainda.',
+    'dict.empty_filtered': 'Nenhuma entrada corresponde a esse filtro.',
+    'menu.edit': 'Editar',
+    'snip.add_new': 'Adicionar novo',
+    'snip.trigger_placeholder': 'gatilho falado',
+    'snip.expansion_placeholder': 'texto de expansão',
+    'snip.banner_title': 'Fale menos, escreva mais.',
+    'snip.banner_sub': 'Um gatilho falado expande pra um texto completo salvo durante o ditado - diga "btw" e receba "by the way", automaticamente.',
+    'snip.filter_all': 'Todos',
+    'snip.filter_builtin': 'Padrão',
+    'snip.filter_custom': 'Personalizados',
+    'snip.empty': 'Nenhum atalho ainda.',
+    'snip.empty_filtered': 'Nenhum atalho corresponde a esse filtro.',
+    'snip.save': 'Salvar',
+    'btn.change': 'Mudar',
+    'scratch.add_to_pill': 'Adicionar à pílula flutuante',
+    'scratch.search_placeholder': 'Buscar notas…',
+    'scratch.untitled': 'Sem título',
+    'scratch.content_placeholder': 'Comece a digitar ou dite…',
+    'scratch.empty_state': 'Selecione uma nota, ou crie uma nova',
+    'transforms.banner_title': 'Reescreva um texto que você já escreveu',
+    'transforms.banner_sub': 'Selecione um texto em qualquer app, aperte um atalho, e o TalkFlow reescreve no lugar - sem precisar ditar.',
+    'transforms.polish_name': 'Polish',
+    'transforms.polish_sub': 'Corrige a gramática e ajusta o texto, mantendo o significado',
+    'transforms.pe_name': 'Prompt Engineer',
+    'transforms.pe_sub': 'Reescreve como um prompt de IA claro e estruturado',
+    'transforms.custom_title': 'Transformações personalizadas',
+    'transforms.name_placeholder': 'nome',
+    'transforms.instruction_placeholder': 'instrução (o que essa transformação deve fazer?)',
+    'transforms.no_hotkey': 'Sem atalho',
+    'transforms.set_hotkey': 'Definir atalho',
+    'transforms.no_custom': 'Nenhuma transformação personalizada ainda.',
+    'cmd.banner_title': 'Edite ou pesquise com a sua voz',
+    'cmd.banner_sub': 'Segure o atalho, diga o que quer mudar ou pesquisar, solte - sem frase de gatilho.',
+    'cmd.row_label': 'Modo Comando',
+    'cmd.row_sub': 'Segure, fale uma instrução, solte',
+    'note.banner_title': 'Deixe as reuniões fazerem suas próprias notas',
+    'note.banner_sub': 'Ative a gravação pelo ícone da bandeja - microfone + áudio do sistema são transcritos e resumidos automaticamente.',
+    'note.empty': 'Nenhuma reunião registrada ainda.',
+    'registry.asr_title': 'ASR &mdash; voz para texto',
+    'registry.cleanup_title': 'Limpeza &mdash; texto para texto, compatível com OpenAI (local ou nuvem)',
+    'registry.test_save': 'Testar e Salvar',
+    'registry.active': 'Ativo',
+    'registry.activate': 'Ativar',
+    'registry.no_entries': 'Nenhuma entrada ainda.',
+    'settings.shortcuts_title': 'Atalhos',
+    'settings.dictate_label': 'Ditar',
+    'settings.general_title': 'Geral',
+    'settings.trigger_mode_label': 'Modo de ativação',
+    'settings.languages_label': 'Idiomas de ditado',
+    'settings.languages_sub': 'Separados por vírgula. O TalkFlow detecta qual você falou em cada ditado.',
+    'settings.mic_label': 'Microfone',
+    'settings.restart_hint': 'Reinicie para aplicar.',
+    'settings.retain_history': 'Manter histórico',
+    'settings.partial_paste_label': 'Colar enquanto fala',
+    'settings.partial_paste_sub': 'Insere o texto a cada pausa em vez de tudo de uma vez. Cada pedaço é limpo sozinho, então a limpeza fica mais fraca. Não é usado com um atalho de modificador segurado (ex: Ctrl+Shift+D no modo segurar). Reinicie para aplicar.',
+    'settings.launch_at_login': 'Abrir o TalkFlow ao fazer login',
+    'settings.save': 'Salvar',
+    'settings.system_default': 'Padrão do sistema',
+  },
+};
+
+function t(key) {
+  const lang = $('tb-lang').dataset.lang || 'en';
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  return dict[key] || TRANSLATIONS.en[key] || key;
+}
+
+function applyTranslations() {
+  const lang = $('tb-lang').dataset.lang || 'en';
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (dict[key]) el.innerHTML = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+    if (dict[key]) el.placeholder = dict[key];
+  });
+}
+
+async function toggleLanguage() {
+  const current = $('tb-lang').dataset.lang || 'en';
+  const next = current === 'en' ? 'pt-BR' : 'en';
+  $('tb-lang').dataset.lang = next;
+  $('tb-lang').textContent = next === 'en' ? 'EN' : 'PT';
+  applyTranslations();
+  await pywebview.api.save_settings({ ui_language: next });
+  // Re-render the active tab too - everything rendered via innerHTML from JS
+  // (stats, recent lists, banner tips, menus...) isn't covered by the
+  // data-i18n sweep above since it doesn't exist in the DOM until a tab loads.
+  const activeTab = document.querySelector('.nav-item.active');
+  if (activeTab) loadTab(activeTab.dataset.tab);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  $('tb-theme-icon').className = theme === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
+}
+async function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  await pywebview.api.save_settings({ ui_theme: next });
+}
+
+function applySidebarCollapsed(collapsed) {
+  $('sidebar').classList.toggle('collapsed', collapsed);
+}
+async function toggleSidebarCollapse() {
+  const collapsed = !$('sidebar').classList.contains('collapsed');
+  applySidebarCollapsed(collapsed);
+  await pywebview.api.save_settings({ ui_sidebar_collapsed: collapsed });
+}
+
+let _maximized = false;
+function toggleMaximize() {
+  _maximized = !_maximized;
+  if (_maximized) { pywebview.api.maximize_main_window(); $('tb-maximize-btn').innerHTML = '<i class="ti ti-copy" style="transform:scaleX(-1)"></i>'; }
+  else { pywebview.api.restore_main_window(); $('tb-maximize-btn').innerHTML = '<i class="ti ti-square"></i>'; }
+}
+
+// Frameless main window has no native resize border - a corner grip drives
+// it directly, same technique/reasoning as the floating notes popup.
+let _mwResizing = false, _mwStartX = 0, _mwStartY = 0, _mwStartW = 0, _mwStartH = 0, _mwRaf = null;
+function mwResizeMouseDown(e) {
+  _mwResizing = true; _mwStartX = e.screenX; _mwStartY = e.screenY;
+  _mwStartW = document.documentElement.clientWidth; _mwStartH = document.documentElement.clientHeight;
+  e.preventDefault();
+}
+window.addEventListener('mousemove', (e) => {
+  if (!_mwResizing) return;
+  const w = Math.max(720, _mwStartW + (e.screenX - _mwStartX));
+  const h = Math.max(480, _mwStartH + (e.screenY - _mwStartY));
+  if (_mwRaf) cancelAnimationFrame(_mwRaf);
+  _mwRaf = requestAnimationFrame(() => pywebview.api.resize_main_window(w, h));
+});
+window.addEventListener('mouseup', () => { _mwResizing = false; });
+
+async function initUiPrefs() {
+  const s = await pywebview.api.get_settings();
+  applyTheme(s.ui_theme || 'light');
+  $('tb-lang').dataset.lang = s.ui_language || 'en';
+  $('tb-lang').textContent = (s.ui_language || 'en') === 'en' ? 'EN' : 'PT';
+  applyTranslations();
+  applySidebarCollapsed(!!s.ui_sidebar_collapsed);
+}
 document.querySelectorAll('.nav-item').forEach(el => el.addEventListener('click', () => {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
@@ -254,20 +1336,268 @@ document.querySelectorAll('.nav-item').forEach(el => el.addEventListener('click'
 }));
 
 async function loadTab(tab) {
-  if (tab === 'dictation') {
-    const s = await pywebview.api.get_settings();
-    $('dictation-settings-preview').innerHTML =
-      `<div class="flex items-center gap-2 mb-1"><span class="hotkey-chip">${formatHotkeySpec(s.hotkey)}</span><span class="text-[var(--text-secondary)]">${s.trigger_mode === 'hold' ? 'hold to talk' : 'tap twice to start, once to stop'}</span></div>
-       <div class="text-[var(--text-secondary)]">Languages: ${s.language_allowlist.join(', ')}</div>`;
-  } else if (tab === 'history') { await loadHistory(); }
+  if (tab === 'dictation') { await loadDictationTab(); }
+  else if (tab === 'history') { histBanner.render(); histBanner.restart(); await loadHistory(); }
+  else if (tab === 'insights') { await loadInsights(); }
   else if (tab === 'transforms') { await loadCustomTransforms(); await loadMainHotkeyChips(); }
   else if (tab === 'style') { await loadStyle(); }
   else if (tab === 'dictionary') { await loadDictionary(); }
   else if (tab === 'snippets') { await loadSnippets(); }
+  else if (tab === 'scratchpad') { await loadScratchpad(); }
   else if (tab === 'notetaker') { await loadMeetings(); }
   else if (tab === 'registry') { await loadRegistry(); }
   else if (tab === 'command_mode') { await loadMainHotkeyChips(); }
   else if (tab === 'settings') { await loadSettings(); }
+}
+
+// ---- Dictation tab: hero, quick config (trigger mode / languages), recent list ----
+const LANGUAGES = [
+  ['en', 'English', 'English'], ['pt-BR', 'Portuguese', 'Português'], ['es', 'Spanish', 'Español'],
+  ['fr', 'French', 'Français'], ['de', 'German', 'Deutsch'], ['it', 'Italian', 'Italiano'],
+  ['nl', 'Dutch', 'Nederlands'], ['pl', 'Polish', 'Polski'], ['ru', 'Russian', 'Русский'],
+  ['uk', 'Ukrainian', 'Українська'], ['tr', 'Turkish', 'Türkçe'], ['sv', 'Swedish', 'Svenska'],
+  ['no', 'Norwegian', 'Norsk'], ['da', 'Danish', 'Dansk'], ['fi', 'Finnish', 'Suomi'],
+  ['cs', 'Czech', 'Čeština'], ['sk', 'Slovak', 'Slovenčina'], ['ro', 'Romanian', 'Română'],
+  ['hu', 'Hungarian', 'Magyar'], ['el', 'Greek', 'Ελληνικά'], ['bg', 'Bulgarian', 'Български'],
+  ['hr', 'Croatian', 'Hrvatski'], ['sl', 'Slovenian', 'Slovenščina'], ['sq', 'Albanian', 'Shqip'],
+  ['et', 'Estonian', 'Eesti'], ['lv', 'Latvian', 'Latviešu'], ['lt', 'Lithuanian', 'Lietuvių'],
+  ['he', 'Hebrew', 'עברית'], ['ar', 'Arabic', 'العربية'], ['fa', 'Persian', 'فارسی'],
+  ['ur', 'Urdu', 'اردو'], ['hi', 'Hindi', 'हिन्दी'], ['bn', 'Bengali', 'বাংলা'],
+  ['ta', 'Tamil', 'தமிழ்'], ['te', 'Telugu', 'తెలుగు'], ['mr', 'Marathi', 'मराठी'],
+  ['gu', 'Gujarati', 'ગુજરાતી'], ['kn', 'Kannada', 'ಕನ್ನಡ'], ['ml', 'Malayalam', 'മലയാളം'],
+  ['pa', 'Punjabi', 'ਪੰਜਾਬੀ'], ['ne', 'Nepali', 'नेपाली'], ['th', 'Thai', 'ไทย'],
+  ['vi', 'Vietnamese', 'Tiếng Việt'], ['id', 'Indonesian', 'Bahasa Indonesia'], ['tl', 'Tagalog', 'Tagalog'],
+  ['zh-cn', 'Chinese - Simplified', '简体中文'], ['zh-tw', 'Chinese - Traditional', '繁體中文'],
+  ['ja', 'Japanese', '日本語'], ['ko', 'Korean', '한국어'], ['sw', 'Swahili', 'Kiswahili'],
+  ['af', 'Afrikaans', 'Afrikaans'], ['ca', 'Catalan', 'Català'], ['cy', 'Welsh', 'Cymraeg'],
+  ['mk', 'Macedonian', 'Македонски'], ['so', 'Somali', 'Soomaali'],
+];
+const LANGUAGES_BY_CODE = Object.fromEntries(LANGUAGES.map(l => [l[0], l]));
+function langName(code) { return (LANGUAGES_BY_CODE[code] || [code, code])[1]; }
+
+let _dictSettings = null;
+
+async function loadDictationTab() {
+  const s = await pywebview.api.get_settings();
+  _dictSettings = s;
+  $('dict-greeting-prefix').textContent = t('dict.greeting_prefix');
+  $('dict-greeting-hotkey').textContent = formatHotkeySpec(s.hotkey);
+  renderDictConfigCard(s);
+  dictBanner.render();
+  dictBanner.restart();
+  try {
+    const ins = await pywebview.api.get_insights();
+    $('dict-stat-words').textContent = ins.total_words.toLocaleString();
+    $('dict-stat-wpm').textContent = ins.avg_wpm;
+    $('dict-stat-streak').textContent = ins.current_streak;
+  } catch (e) { console.error('get_insights failed', e); }
+  document.querySelector('[data-i18n="dict.recent_title"]').textContent = t('dict.recent_title');
+  document.querySelector('[data-i18n="dict.view_all"]').textContent = t('dict.view_all');
+  $('dict-stat-words').previousElementSibling.textContent = t('dict.stat.words');
+  $('dict-stat-wpm').previousElementSibling.textContent = t('dict.stat.wpm');
+  $('dict-stat-streak').previousElementSibling.textContent = t('dict.stat.streak');
+  await loadRecentDictations();
+}
+
+function renderDictConfigCard(s) {
+  $('dictation-settings-preview').innerHTML =
+    `<div class="dict-config-item clickable" id="dict-mode-trigger" onclick="toggleTriggerModePopover(event)">
+       <i class="ti ${s.trigger_mode === 'hold' ? 'ti-hand-stop' : 'ti-repeat'}"></i>
+       <span>${s.trigger_mode === 'hold' ? t('mode.hold.label') : t('mode.toggle.label')}</span>
+       <i class="ti ti-chevron-down"></i>
+     </div>
+     <div class="dict-config-divider"></div>
+     <div class="dict-config-item clickable" id="dict-lang-trigger" onclick="openLangModal()">
+       <i class="ti ti-language"></i>
+       <span>${s.language_allowlist.map(langName).join(', ')}</span>
+       <i class="ti ti-chevron-down"></i>
+     </div>`;
+}
+
+// --- Banner: rotating tips about different features, like Wispr's promo card.
+// Reused on both the Dictation and History pages (each gets its own controller
+// instance/timer/index - both tabs' markup lives in the DOM at once, just one
+// hidden, so they can't share state or a single timer). ---
+const BANNER_TIPS = [
+  { tab: 'dictation', titleKey: 'banner.tip.dictation.title', subKey: 'banner.tip.dictation.sub' },
+  { tab: 'transforms', titleKey: 'banner.tip.transforms.title', subKey: 'banner.tip.transforms.sub' },
+  { tab: 'command_mode', titleKey: 'banner.tip.command.title', subKey: 'banner.tip.command.sub' },
+  { tab: 'snippets', titleKey: 'banner.tip.snippets.title', subKey: 'banner.tip.snippets.sub' },
+  { tab: 'dictionary', titleKey: 'banner.tip.dictionary.title', subKey: 'banner.tip.dictionary.sub' },
+  { tab: 'notetaker', titleKey: 'banner.tip.notetaker.title', subKey: 'banner.tip.notetaker.sub' },
+];
+function createBannerController(idPrefix, globalName, startIndex) {
+  let index = startIndex;
+  let timer = null;
+  function render() {
+    const tip = BANNER_TIPS[index];
+    $(idPrefix + '-img').src = `images/banner-${tip.tab}.png`;
+    $(idPrefix + '-title').textContent = t(tip.titleKey);
+    $(idPrefix + '-sub').textContent = t(tip.subKey);
+    $(idPrefix + '-cta').textContent = t('dict.banner.try');
+    $(idPrefix + '-dots').innerHTML = BANNER_TIPS.map((_, i) =>
+      `<span class="dict-banner-dot ${i === index ? 'active' : ''}" onclick="${globalName}.set(${i})"></span>`).join('');
+  }
+  function set(i) { index = i; render(); restart(); }
+  function goTab() {
+    const navItem = document.querySelector(`.nav-item[data-tab="${BANNER_TIPS[index].tab}"]`);
+    if (navItem) navItem.click();
+  }
+  function restart() {
+    clearInterval(timer);
+    timer = setInterval(() => { index = (index + 1) % BANNER_TIPS.length; render(); }, 6000);
+  }
+  function pause() { clearInterval(timer); }
+  function resume() { restart(); }
+  return { render, set, goTab, restart, pause, resume };
+}
+const dictBanner = createBannerController('dict-banner', 'dictBanner', 0);
+const histBanner = createBannerController('hist-banner', 'histBanner', 1);
+
+// --- Trigger-mode quick popover ---
+function toggleTriggerModePopover(e) {
+  e.stopPropagation();
+  const pop = $('dict-mode-popover');
+  const anchor = $('dict-mode-trigger');
+  const isOpen = pop.classList.contains('open');
+  closeAllRecentMenus();
+  if (isOpen) { pop.classList.remove('open'); return; }
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = r.left + 'px';
+  pop.style.top = (r.bottom + 6) + 'px';
+  pop.querySelectorAll('.dict-mode-option').forEach(o =>
+    o.classList.toggle('selected', o.dataset.mode === _dictSettings.trigger_mode));
+  pop.classList.add('open');
+}
+async function setTriggerModeQuick(mode) {
+  $('dict-mode-popover').classList.remove('open');
+  const current = await pywebview.api.get_settings();
+  current.trigger_mode = mode;
+  await pywebview.api.save_settings(current);
+  await loadDictationTab();
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#dict-mode-popover') && !e.target.closest('#dict-mode-trigger')) {
+    const pop = $('dict-mode-popover'); if (pop) pop.classList.remove('open');
+  }
+});
+
+// --- Language picker modal ---
+let _langSelected = [];
+function openLangModal() {
+  _langSelected = [..._dictSettings.language_allowlist];
+  $('lang-autodetect-toggle').checked = _langSelected.length >= 20; // heuristic: "most of the list" was picked via auto-detect
+  $('lang-search').value = '';
+  renderLangGrid();
+  renderLangSelected();
+  $('lang-modal-backdrop').classList.add('open');
+}
+function closeLangModal() { $('lang-modal-backdrop').classList.remove('open'); }
+function renderLangGrid() {
+  const q = $('lang-search').value.trim().toLowerCase();
+  const rows = LANGUAGES.filter(([code, name, native]) =>
+    !q || name.toLowerCase().includes(q) || native.toLowerCase().includes(q) || code.toLowerCase().includes(q));
+  $('lang-grid').innerHTML = rows.map(([code, name, native]) => `
+    <div class="lang-chip ${_langSelected.includes(code) ? 'selected' : ''}" onclick="toggleLangSelect('${code}')">
+      <div class="name">${escapeHtml(name)}</div>
+      <div class="native">${escapeHtml(native)}</div>
+    </div>`).join('') || `<div class="dict-recent-empty">${t('lang.modal.no_match')}</div>`;
+}
+function toggleLangSelect(code) {
+  const i = _langSelected.indexOf(code);
+  if (i >= 0) { if (_langSelected.length > 1) _langSelected.splice(i, 1); }
+  else { _langSelected.push(code); }
+  renderLangGrid();
+  renderLangSelected();
+}
+function renderLangSelected() {
+  $('lang-selected-list').innerHTML = _langSelected.map(code => `
+    <div class="lang-selected-row">
+      <span>${escapeHtml(langName(code))}</span>
+      ${_langSelected.length > 1 ? `<span class="lang-selected-remove" onclick="toggleLangSelect('${code}')">&minus;</span>` : ''}
+    </div>`).join('');
+}
+function onAutoDetectToggle() {
+  // No fixed allowlist to pick from the model's side - the closest honest
+  // equivalent is detecting among every language TalkFlow supports, instead
+  // of a short hand-picked list.
+  if ($('lang-autodetect-toggle').checked) {
+    _langSelected = LANGUAGES.map(l => l[0]);
+  } else {
+    _langSelected = _dictSettings.language_allowlist.length ? [..._dictSettings.language_allowlist] : ['en'];
+  }
+  renderLangGrid();
+  renderLangSelected();
+}
+async function saveLangModal() {
+  const current = await pywebview.api.get_settings();
+  current.language_allowlist = _langSelected.length ? _langSelected : ['en'];
+  await pywebview.api.save_settings(current);
+  closeLangModal();
+  await loadDictationTab();
+}
+
+// --- Recent dictations list (hero widget - compact version of History) ---
+async function loadRecentDictations() {
+  try {
+    const rows = await pywebview.api.list_history(6);
+    renderRecentList(rows);
+  } catch (e) { console.error('list_history failed', e); }
+}
+function renderRecentList(rows) {
+  $('dict-recent-list').innerHTML = rows.map(r => `
+    <div class="dict-recent-row" data-session-id="${r.id}">
+      <span class="dict-recent-time">${(r.started_at || '').slice(5, 16).replace('T', ' ')}</span>
+      <span class="dict-recent-text">${escapeHtml(r.cleaned_transcript || '')}</span>
+      <button class="dict-recent-menu-btn" onclick="toggleRecentMenu(event,'${r.id}')"><i class="ti ti-dots"></i></button>
+      <div class="dict-recent-menu" id="dict-recent-menu-${r.id}">
+        <div class="dict-recent-menu-item" onclick="editRecentRow('${r.id}')"><i class="ti ti-pencil"></i> ${t('menu.save_learn')}</div>
+        <div class="dict-recent-menu-item danger" onclick="deleteRecentRow('${r.id}')"><i class="ti ti-trash"></i> ${t('menu.delete')}</div>
+      </div>
+    </div>`).join('') || `<div class="dict-recent-empty">${t('dict.recent_empty')}</div>`;
+}
+function closeAllRecentMenus() {
+  document.querySelectorAll('.dict-recent-menu.open').forEach(m => m.classList.remove('open'));
+}
+function toggleRecentMenu(e, id) {
+  e.stopPropagation();
+  const menu = $('dict-recent-menu-' + id);
+  const isOpen = menu.classList.contains('open');
+  closeAllRecentMenus();
+  const pop = $('dict-mode-popover'); if (pop) pop.classList.remove('open');
+  if (!isOpen) menu.classList.add('open');
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.dict-recent-menu') && !e.target.closest('.dict-recent-menu-btn')) closeAllRecentMenus();
+});
+function editRecentRow(id) {
+  closeAllRecentMenus();
+  const row = document.querySelector(`.dict-recent-row[data-session-id="${id}"]`);
+  const textEl = row.querySelector('.dict-recent-text');
+  const current = textEl.textContent;
+  textEl.innerHTML = `<textarea rows="2">${escapeHtml(current)}</textarea>
+    <button class="btn btn-secondary" style="margin-top:6px" onclick="saveRecentEdit('${id}')">${t('menu.save_learn')}</button>`;
+  const ta = textEl.querySelector('textarea');
+  ta.focus();
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); loadRecentDictations(); }
+  });
+}
+async function saveRecentEdit(id) {
+  const row = document.querySelector(`.dict-recent-row[data-session-id="${id}"]`);
+  const newText = row.querySelector('textarea').value;
+  const result = await pywebview.api.correct_history_entry(id, newText);
+  await loadRecentDictations();
+  if (result.ok && result.learned_terms && result.learned_terms.length) {
+    const newRow = document.querySelector(`.dict-recent-row[data-session-id="${id}"]`);
+    if (newRow) newRow.insertAdjacentHTML('afterend',
+      `<div class="dict-recent-learned">${t('toast.learned_prefix')}${escapeHtml(result.learned_terms.join(', '))}</div>`);
+  }
+}
+async function deleteRecentRow(id) {
+  closeAllRecentMenus();
+  await pywebview.api.delete_history_entry(id);
+  await loadRecentDictations();
 }
 
 function escapeHtml(s) {
@@ -333,30 +1663,187 @@ async function loadMainHotkeyChips() {
 async function loadHistory(query) {
   const rows = query ? await pywebview.api.search_history(query, 50) : await pywebview.api.list_history(50);
   $('history-list').innerHTML = rows.map(r => `
-    <div class="card p-3">
-      <div class="text-[var(--text-secondary)] text-xs mb-2">${(r.started_at||'').slice(0,19)} &middot; ${r.target_process_name||''} &middot; ${r.detected_language||''} &middot; ${r.applied_preset_id||''}</div>
-      <div class="flex gap-2 items-start">
-        <textarea class="flex-1 px-3 py-2" rows="2" data-session-id="${r.id}">${escapeHtml(r.cleaned_transcript||'')}</textarea>
-        <button onclick="saveHistoryCorrection('${r.id}')" class="btn btn-secondary shrink-0">Save &amp; learn</button>
+    <div class="dict-recent-row" data-session-id="${r.id}">
+      <span class="dict-recent-time">${(r.started_at || '').slice(5, 16).replace('T', ' ')}</span>
+      <div class="dict-recent-text" id="hist-text-${r.id}">
+        <div class="dict-recent-meta">
+          ${r.target_process_name ? `<i class="ti ${appIcon(r.target_process_name)}"></i><span>${escapeHtml(appDisplayName(r.target_process_name))}</span><span class="dot">&middot;</span>` : ''}
+          ${r.detected_language ? `<span>${escapeHtml(r.detected_language)}</span>` : ''}
+        </div>
+        <div class="dict-recent-body">${escapeHtml(r.cleaned_transcript || '')}</div>
       </div>
-      <div id="learned-${r.id}" class="text-xs mt-1" style="color:var(--success)"></div>
-    </div>`).join('') || '<div class="text-[var(--text-secondary)]">No history yet.</div>';
+      <button class="dict-recent-menu-btn" onclick="toggleHistMenu(event,'${r.id}')"><i class="ti ti-dots"></i></button>
+      <div class="dict-recent-menu" id="hist-menu-${r.id}">
+        <div class="dict-recent-menu-item" onclick="editHistoryRow('${r.id}')"><i class="ti ti-pencil"></i> ${t('menu.save_learn')}</div>
+        <div class="dict-recent-menu-item danger" onclick="deleteHistoryEntry('${r.id}')"><i class="ti ti-trash"></i> ${t('menu.delete')}</div>
+      </div>
+    </div>`).join('') || `<div class="dict-recent-empty">${t('history.empty')}</div>`;
 }
 $('history-search').addEventListener('input', e => loadHistory(e.target.value));
 
-async function saveHistoryCorrection(sessionId) {
-  const textarea = document.querySelector(`textarea[data-session-id="${sessionId}"]`);
-  const result = await pywebview.api.correct_history_entry(sessionId, textarea.value);
-  const learnedEl = $('learned-' + sessionId);
+function closeAllHistMenus() {
+  document.querySelectorAll('[id^="hist-menu-"].open').forEach(m => m.classList.remove('open'));
+}
+function toggleHistMenu(e, id) {
+  e.stopPropagation();
+  const menu = $('hist-menu-' + id);
+  const isOpen = menu.classList.contains('open');
+  closeAllHistMenus();
+  if (!isOpen) menu.classList.add('open');
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[id^="hist-menu-"]') && !e.target.closest('.dict-recent-menu-btn')) closeAllHistMenus();
+});
+
+function editHistoryRow(id) {
+  closeAllHistMenus();
+  const textEl = $('hist-text-' + id);
+  const current = textEl.querySelector('.dict-recent-body').textContent;
+  textEl.querySelector('.dict-recent-body').outerHTML =
+    `<textarea rows="2">${escapeHtml(current)}</textarea>
+     <button class="btn btn-secondary" style="margin-top:6px" onclick="saveHistoryCorrection('${id}')">${t('menu.save_learn')}</button>`;
+  const ta = textEl.querySelector('textarea');
+  ta.focus();
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); loadHistory($('history-search').value); }
+  });
+}
+async function saveHistoryCorrection(id) {
+  const textEl = $('hist-text-' + id);
+  const newText = textEl.querySelector('textarea').value;
+  const result = await pywebview.api.correct_history_entry(id, newText);
+  await loadHistory($('history-search').value);
   if (result.ok && result.learned_terms && result.learned_terms.length) {
-    learnedEl.textContent = 'Learned: ' + result.learned_terms.join(', ');
-  } else if (result.ok) {
-    learnedEl.textContent = 'Saved (no new terms detected).';
-    learnedEl.style.color = 'var(--text-secondary)';
-  } else {
-    learnedEl.textContent = 'Error: ' + (result.error || 'unknown');
-    learnedEl.style.color = 'var(--danger)';
+    const row = document.querySelector(`.dict-recent-row[data-session-id="${id}"]`);
+    if (row) row.insertAdjacentHTML('afterend',
+      `<div class="dict-recent-learned">${t('toast.learned_prefix')}${escapeHtml(result.learned_terms.join(', '))}</div>`);
   }
+}
+async function deleteHistoryEntry(sessionId) {
+  closeAllHistMenus();
+  await pywebview.api.delete_history_entry(sessionId);
+  loadHistory($('history-search').value);
+}
+
+const APP_ICON_MAP = [
+  [/chrome|edge|firefox|brave/i, 'ti-world', n => n.replace(/\.exe$/i, '')],
+  [/claude|chatgpt|openai/i, 'ti-sparkles', () => 'Claude'],
+  [/whatsapp/i, 'ti-brand-whatsapp', () => 'WhatsApp'],
+  [/slack/i, 'ti-brand-slack', () => 'Slack'],
+  [/outlook|thunderbird/i, 'ti-mail', n => n.replace(/\.exe$/i, '')],
+  [/code|cursor/i, 'ti-code', n => n.replace(/\.exe$/i, '')],
+  [/terminal|cmd|powershell|bash/i, 'ti-terminal-2', n => n.replace(/\.exe$/i, '')],
+  [/word|excel|powerpnt|onenote/i, 'ti-file-text', n => n.replace(/\.exe$/i, '')],
+  [/notion|trilium|obsidian/i, 'ti-notes', n => n.replace(/\.exe$/i, '')],
+];
+function appIcon(processName) {
+  const m = APP_ICON_MAP.find(([re]) => re.test(processName));
+  return m ? m[1] : 'ti-app-window';
+}
+function appDisplayName(processName) {
+  const m = APP_ICON_MAP.find(([re]) => re.test(processName));
+  return m ? m[2](processName) : processName.replace(/\.exe$/i, '');
+}
+
+function setInsightsView(view) {
+  document.querySelectorAll('.insights-subtab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  $('insights-view-usage').classList.toggle('hidden', view !== 'usage');
+  $('insights-view-voice').classList.toggle('hidden', view !== 'voice');
+}
+
+function pluralDictations(n) {
+  const lang = $('tb-lang').dataset.lang || 'en';
+  if (lang === 'pt-BR') return `${n} ${n === 1 ? 'ditado' : 'ditados'}`;
+  return `${n} dictation${n === 1 ? '' : 's'}`;
+}
+function streakLabel(n) {
+  const lang = $('tb-lang').dataset.lang || 'en';
+  if (lang === 'pt-BR') return `${n} ${n === 1 ? 'dia seguido' : 'dias seguidos'}`;
+  return `${n} day${n === 1 ? '' : 's'} streak`;
+}
+
+async function loadInsights() {
+  const s = await pywebview.api.get_insights();
+
+  $('ins-wpm').textContent = s.avg_wpm;
+  const pct = Math.max(0, Math.min(1, s.avg_wpm / 200));
+  $('wpm-arc').setAttribute('stroke-dasharray', `${(pct * 157).toFixed(1)} 157`);
+
+  $('ins-total-words').textContent = s.total_words.toLocaleString();
+  $('ins-total-sessions').textContent = pluralDictations(s.total_sessions);
+  $('ins-fixes').textContent = s.terms_learned + s.terms_manual;
+  $('ins-learned').textContent = s.terms_learned;
+  $('ins-manual').textContent = s.terms_manual;
+
+  $('ins-apps').innerHTML = s.app_usage.map(a => `
+    <div class="app-usage-row">
+      <i class="ti ${appIcon(a.process_name)}"></i>
+      <span class="insight-pill">${a.pct}%</span>
+      <span class="insight-pill-label" title="${escapeHtml(a.process_name)}">${escapeHtml(appDisplayName(a.process_name))}</span>
+      <span class="count">${a.session_count}</span>
+    </div>`).join('') || `<div class="app-usage-empty">${t('insights.no_apps')}</div>`;
+
+  $('ins-languages').innerHTML = s.language_usage.map(l => `
+    <div class="app-usage-row">
+      <i class="ti ti-language"></i>
+      <span class="insight-pill">${l.pct}%</span>
+      <span class="insight-pill-label">${escapeHtml(langName(l.language))}</span>
+      <span class="count">${pluralDictations(l.session_count)}</span>
+    </div>`).join('') || `<div class="app-usage-empty">${t('insights.no_languages')}</div>`;
+
+  $('ins-streak-label').textContent = streakLabel(s.current_streak);
+  $('ins-streak-longest').textContent = t('insights.longest').replace('{n}', s.longest_streak);
+  renderInsightsCalendar(s.daily_counts);
+}
+
+const MONTH_NAMES = {
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  'pt-BR': ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+};
+function renderInsightsCalendar(dailyCounts) {
+  const days = [];
+  const today = new Date();
+  for (let i = 118; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    days.push(d);
+  }
+  const leadingPad = days[0].getDay();
+  let html = '';
+  for (let i = 0; i < leadingPad; i++) html += '<div class="ins-day" style="background:transparent"></div>';
+  for (const d of days) {
+    const key = d.toISOString().slice(0, 10);
+    const count = dailyCounts[key] || 0;
+    const level = count === 0 ? 0 : count <= 2 ? 1 : count <= 5 ? 2 : 3;
+    html += `<div class="ins-day" data-level="${level}" title="${key}: ${count}"></div>`;
+  }
+  $('ins-calendar').innerHTML = html;
+
+  // Month labels: one label per column-span where the month changes, each
+  // sized to the number of weeks (columns) it covers so it lines up with
+  // the grid above (grid-auto-flow:column, 7 rows/week -> 1 column/week).
+  const lang = $('tb-lang').dataset.lang || 'en';
+  const names = MONTH_NAMES[lang] || MONTH_NAMES.en;
+  const totalCols = Math.ceil((leadingPad + days.length) / 7);
+  const colMonths = [];
+  for (let col = 0; col < totalCols; col++) {
+    const dayIndex = col * 7 - leadingPad;
+    const d = days[Math.max(0, Math.min(days.length - 1, dayIndex))];
+    colMonths.push(d.getMonth());
+  }
+  const colWidth = 11 + 3; // .ins-day width + gap
+  let monthsHtml = '';
+  let i = 0;
+  while (i < colMonths.length) {
+    let span = 1;
+    while (i + span < colMonths.length && colMonths[i + span] === colMonths[i]) span++;
+    monthsHtml += `<span style="width:${span * colWidth}px">${names[colMonths[i]]}</span>`;
+    i += span;
+  }
+  $('ins-cal-months').innerHTML = monthsHtml;
+}
+
+function scrollInsightsCalendar(dir) {
+  $('ins-calendar-scroll').scrollBy({ left: dir * 120, behavior: 'smooth' });
 }
 
 let _newTransformHotkey = null;
@@ -366,34 +1853,166 @@ function captureNewTransformHotkey() {
 
 async function loadCustomTransforms() {
   const transforms = await pywebview.api.list_custom_transforms();
-  $('custom-transform-list').innerHTML = transforms.map(t =>
+  $('custom-transform-list').innerHTML = transforms.map(tr =>
     `<div class="list-row">
-      <div class="min-w-0"><div class="font-medium">${escapeHtml(t.name)}</div><div class="text-xs text-[var(--text-secondary)]">${escapeHtml(t.instruction)}</div></div>
-      <div class="flex items-center gap-2 shrink-0">${t.hotkey ? `<span class="hotkey-chip">${formatHotkeySpec(t.hotkey)}</span>` : ''}<button onclick="deleteCustomTransform('${t.id}')" class="btn-danger-text">Delete</button></div>
-    </div>`).join('') || '<div class="list-row text-[var(--text-secondary)]">No custom transforms yet.</div>';
+      <div class="min-w-0"><div class="font-medium">${escapeHtml(tr.name)}</div><div class="text-xs text-[var(--text-secondary)]">${escapeHtml(tr.instruction)}</div></div>
+      <div class="flex items-center gap-2 shrink-0">${tr.hotkey ? `<span class="hotkey-chip">${formatHotkeySpec(tr.hotkey)}</span>` : ''}<span class="row-del-btn" onclick="deleteCustomTransform('${tr.id}')"><i class="ti ti-trash"></i></span></div>
+    </div>`).join('') || `<div class="list-row text-[var(--text-secondary)]">${t('transforms.no_custom')}</div>`;
 }
 async function createCustomTransform() {
   if (!$('ct-name').value.trim() || !$('ct-instruction').value.trim()) return;
   const result = await pywebview.api.create_custom_transform($('ct-name').value, $('ct-instruction').value, _newTransformHotkey);
   if (!result.ok) { alert(result.error); return; }
   $('ct-name').value = ''; $('ct-instruction').value = '';
-  _newTransformHotkey = null; $('ct-hotkey-display').textContent = 'No hotkey';
+  _newTransformHotkey = null; $('ct-hotkey-display').textContent = t('transforms.no_hotkey');
   loadCustomTransforms();
 }
 async function deleteCustomTransform(id) { await pywebview.api.delete_custom_transform(id); loadCustomTransforms(); }
 
+// ---- Style tab: category tabs (Personal/Work/Email/Other) + Auto Cleanup,
+// each a set of selectable cards with a real preview run through the active
+// cleanup model (never a fabricated mockup - see Api.preview_cleanup). ----
+let _stylePresets = [];
+let _styleCategories = [];
+let _styleActiveTab = 'personal';
+let _stylePreviewCache = {};   // "presetId:lang" -> text
+let _cleanupPreviewCache = {}; // "level:lang" -> text
+
+const STYLE_SAMPLE_TEXT = {
+  en: "hey are you free for lunch tomorrow let's do 12 if that works for you",
+  'pt-BR': "oi você tá livre pro almoço amanhã vamos as 12 se funcionar pra você",
+};
+const CLEANUP_SAMPLE_TEXT = {
+  en: "hey joey, we still on for coffee or? I think we maybe should leave earlier um to make it there in time there might be traffic. what are you thinking",
+  'pt-BR': "oi joão, a gente ainda tá de boa pro café ou? acho que talvez a gente devia sair mais cedo hum pra chegar a tempo pode ter trânsito. o que você acha",
+};
+const CLEANUP_LEVELS = ['none', 'light', 'medium'];
+
+function styleLang() { return ($('tb-lang').dataset.lang || 'en') === 'pt-BR' ? 'pt-BR' : 'en'; }
+
 async function loadStyle() {
-  const presets = await pywebview.api.list_presets();
-  $('preset-list').innerHTML = presets.map(p =>
-    `<div class="list-row">
-      <div><span class="font-medium">${escapeHtml(p.name)}</span> <span class="text-[var(--text-secondary)] text-xs">${escapeHtml(p.instruction)}</span></div>
-      ${p.is_builtin ? '<span class="badge">Built-in</span>' : `<button onclick="deletePreset('${p.id}')" class="btn-danger-text">Delete</button>`}
+  _stylePresets = await pywebview.api.list_presets();
+  _styleCategories = await pywebview.api.list_categories();
+  renderStyleTabs();
+  await setStyleTab(_styleActiveTab);
+  renderCustomPresetList();
+}
+
+function renderStyleTabs() {
+  const catKeys = { personal: 'style.cat_personal', work: 'style.cat_work', email: 'style.cat_email', other: 'style.cat_other' };
+  $('style-category-tabs').innerHTML = _styleCategories.map(c =>
+    `<span class="insights-subtab ${c.id === _styleActiveTab ? 'active' : ''}" onclick="setStyleTab('${c.id}')">${t(catKeys[c.id] || c.name)}</span>`
+  ).join('') + `<span class="insights-subtab ${_styleActiveTab === 'cleanup' ? 'active' : ''}" onclick="setStyleTab('cleanup')">${t('style.cat_cleanup')} <span class="style-beta-badge">${t('style.beta')}</span></span>`;
+}
+
+async function setStyleTab(tabId) {
+  _styleActiveTab = tabId;
+  renderStyleTabs();
+  if (tabId === 'cleanup') { await renderCleanupView(); }
+  else { await renderCategoryView(tabId); }
+}
+
+async function renderCategoryView(categoryId) {
+  const cat = _styleCategories.find(c => c.id === categoryId);
+  if (!cat) return;
+  $('style-banner-title').textContent = t('style.banner_title_' + categoryId);
+  $('style-banner-sub').textContent = t('style.banner_sub');
+
+  const apps = await pywebview.api.list_category_apps(categoryId);
+  $('style-banner-apps').innerHTML = apps.slice(0, 4).map(a =>
+    `<span class="style-app-orb" title="${escapeHtml(a)}"><i class="ti ${appIcon(a)}"></i></span>`).join('') +
+    `<span class="style-app-orb style-app-orb-add" onclick="$('style-app-input') && $('style-app-input').focus()"><i class="ti ti-plus"></i></span>`;
+
+  const lang = styleLang();
+  const sample = STYLE_SAMPLE_TEXT[lang];
+  $('style-cards').innerHTML = _stylePresets.map(p => `
+    <div class="style-card ${p.id === cat.preset_id ? 'selected' : ''}" onclick="selectCategoryPreset('${categoryId}','${p.id}')">
+      <div class="style-card-name">${escapeHtml(p.name)}</div>
+      <div class="style-card-sub">${escapeHtml(p.instruction)}</div>
+      <div class="style-card-preview" id="style-preview-${p.id}">${t('style.loading_preview')}</div>
     </div>`).join('');
-  $('app-preset').innerHTML = presets.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-  const assignments = await pywebview.api.list_app_assignments();
-  $('app-assignment-list').innerHTML = Object.entries(assignments).map(([app, presetId]) =>
-    `<div class="list-row"><span>${escapeHtml(app)}</span><span class="text-[var(--text-secondary)]">&rarr; ${presets.find(p=>p.id===presetId)?.name || presetId}</span></div>`).join('')
-    || '<div class="list-row text-[var(--text-secondary)]">No per-app overrides yet (default: Normal).</div>';
+  for (const p of _stylePresets) loadStylePreview(p.id, p.name, p.instruction, sample, lang);
+
+  $('style-app-manage').innerHTML = `
+    <div class="style-app-chip-row">${apps.map(a =>
+      `<span class="style-app-chip"><i class="ti ${appIcon(a)}"></i>${escapeHtml(appDisplayName(a))}<span class="style-app-chip-remove" onclick="removeStyleCategoryApp('${a}')">&times;</span></span>`
+    ).join('') || `<span class="text-[var(--text-secondary)] text-xs">${t('style.no_apps')}</span>`}</div>
+    <div class="flex flex-wrap gap-2 mt-2">
+      <input id="style-app-input" placeholder="${t('style.add_app_placeholder')}" class="px-3 py-2 flex-1 min-w-[160px]" />
+      <button onclick="addStyleCategoryApp('${categoryId}')" class="btn btn-secondary shrink-0">${t('style.add_app')}</button>
+    </div>`;
+}
+
+async function loadStylePreview(presetId, name, instruction, sample, lang) {
+  const cacheKey = presetId + ':' + lang;
+  if (_stylePreviewCache[cacheKey]) { setPreviewText('style-preview-' + presetId, _stylePreviewCache[cacheKey]); return; }
+  const result = await pywebview.api.preview_cleanup(name, instruction, sample, lang, 'light');
+  const text = result.ok ? result.text : sample;
+  _stylePreviewCache[cacheKey] = text;
+  setPreviewText('style-preview-' + presetId, text);
+}
+function setPreviewText(elId, text) {
+  const el = $(elId);
+  if (el) el.textContent = text;
+}
+
+async function selectCategoryPreset(categoryId, presetId) {
+  await pywebview.api.set_category_preset(categoryId, presetId);
+  const cat = _styleCategories.find(c => c.id === categoryId);
+  if (cat) cat.preset_id = presetId;
+  renderCategoryView(categoryId);
+}
+async function addStyleCategoryApp(categoryId) {
+  const input = $('style-app-input');
+  if (!input || !input.value.trim()) return;
+  await pywebview.api.add_app_to_category(input.value.trim(), categoryId);
+  renderCategoryView(categoryId);
+}
+async function removeStyleCategoryApp(processName) {
+  await pywebview.api.remove_app_from_category(processName);
+  renderCategoryView(_styleActiveTab);
+}
+
+async function renderCleanupView() {
+  $('style-banner-title').textContent = t('style.cleanup_banner_title');
+  $('style-banner-sub').textContent = t('style.cleanup_banner_sub');
+  $('style-banner-apps').innerHTML = '';
+  $('style-app-manage').innerHTML = '';
+
+  const settings = await pywebview.api.get_settings();
+  const lang = styleLang();
+  const sample = CLEANUP_SAMPLE_TEXT[lang];
+  $('style-cards').innerHTML = CLEANUP_LEVELS.map(level => `
+    <div class="style-card ${settings.cleanup_level === level ? 'selected' : ''}" onclick="selectCleanupLevel('${level}')">
+      <div class="style-card-name">${t('style.level_' + level + '_name')}</div>
+      <div class="style-card-sub">${t('style.level_' + level + '_sub')}</div>
+      <div class="style-card-preview" id="cleanup-preview-${level}">${level === 'none' ? escapeHtml(sample) : t('style.loading_preview')}</div>
+    </div>`).join('');
+  for (const level of CLEANUP_LEVELS) {
+    if (level === 'none') continue;
+    loadCleanupPreview(level, sample, lang);
+  }
+}
+async function loadCleanupPreview(level, sample, lang) {
+  const cacheKey = level + ':' + lang;
+  if (_cleanupPreviewCache[cacheKey]) { setPreviewText('cleanup-preview-' + level, _cleanupPreviewCache[cacheKey]); return; }
+  const result = await pywebview.api.preview_cleanup('Normal', 'Clear, neutral, professional.', sample, lang, level);
+  const text = result.ok ? result.text : sample;
+  _cleanupPreviewCache[cacheKey] = text;
+  setPreviewText('cleanup-preview-' + level, text);
+}
+async function selectCleanupLevel(level) {
+  const current = await pywebview.api.get_settings();
+  current.cleanup_level = level;
+  await pywebview.api.save_settings(current);
+  renderCleanupView();
+}
+
+function renderCustomPresetList() {
+  const customOnly = _stylePresets.filter(p => !p.is_builtin);
+  $('custom-preset-list').innerHTML = customOnly.map(p =>
+    `<div class="list-row"><div><span class="font-medium">${escapeHtml(p.name)}</span> <span class="text-[var(--text-secondary)] text-xs">${escapeHtml(p.instruction)}</span></div><button onclick="deletePreset('${p.id}')" class="btn-danger-text">${t('menu.delete')}</button></div>`
+  ).join('') || `<div class="list-row text-[var(--text-secondary)]">${t('style.no_custom_presets')}</div>`;
 }
 async function createPreset() {
   if (!$('preset-name').value.trim() || !$('preset-instruction').value.trim()) return;
@@ -402,21 +2021,72 @@ async function createPreset() {
   loadStyle();
 }
 async function deletePreset(id) { await pywebview.api.delete_preset(id); loadStyle(); }
-async function setAppAssignment() {
-  if (!$('app-process').value.trim()) return;
-  await pywebview.api.set_app_assignment($('app-process').value, $('app-preset').value);
-  $('app-process').value = '';
-  loadStyle();
-}
+
+let _dictEntries = [];
+let _dictFilter = 'all';
+let _dictSortNewestFirst = true;
 
 async function loadDictionary() {
-  const entries = await pywebview.api.list_dictionary();
-  $('dict-list').innerHTML = entries.map(e =>
-    `<div class="list-row">
-      <span>${escapeHtml(e.term)} <span class="badge">${e.source}</span></span>
-      <button onclick="deleteDictEntry('${e.id}')" class="btn-danger-text">Delete</button>
-    </div>`).join('') || '<div class="list-row text-[var(--text-secondary)]">No dictionary entries yet.</div>';
+  _dictEntries = await pywebview.api.list_dictionary();
+  renderDictFilterTabs();
+  renderDictBanner();
+  renderDictList();
+  const s = await pywebview.api.get_settings();
+  $('dict-banner').classList.toggle('hidden', !!s.ui_dictionary_banner_dismissed);
 }
+
+function renderDictFilterTabs() {
+  const tabs = [['all', 'dict.filter_all'], ['manual', 'dict.filter_manual'], ['learned', 'dict.filter_learned']];
+  $('dict-filter-tabs').innerHTML = tabs.map(([id, key]) =>
+    `<span class="insights-subtab ${_dictFilter === id ? 'active' : ''}" onclick="setDictFilter('${id}')">${t(key)}</span>`).join('');
+}
+function setDictFilter(filterId) { _dictFilter = filterId; renderDictFilterTabs(); renderDictList(); }
+
+async function dismissDictBanner() {
+  $('dict-banner').classList.add('hidden');
+  const current = await pywebview.api.get_settings();
+  current.ui_dictionary_banner_dismissed = true;
+  await pywebview.api.save_settings(current);
+}
+function renderDictBanner() {
+  const examples = _dictEntries.slice(0, 5);
+  $('dict-banner-pills').innerHTML =
+    `<span class="dict-pill dict-pill-primary" onclick="focusDictAddInput()">${t('dict.add_new')}</span>` +
+    examples.map(e => `<span class="dict-pill">${escapeHtml(e.term)}</span>`).join('');
+}
+
+function focusDictAddInput() {
+  const el = $('dict-term');
+  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+}
+
+function toggleDictSearch() {
+  const wrap = $('dict-search-wrap');
+  wrap.classList.toggle('open');
+  if (wrap.classList.contains('open')) $('dict-search').focus();
+  else { $('dict-search').value = ''; renderDictList(); }
+}
+function toggleDictSort() {
+  _dictSortNewestFirst = !_dictSortNewestFirst;
+  $('dict-sort-icon').className = _dictSortNewestFirst ? 'ti ti-sort-descending-2' : 'ti ti-sort-ascending-2';
+  renderDictList();
+}
+
+function renderDictList() {
+  const query = ($('dict-search').value || '').trim().toLowerCase();
+  let rows = _dictEntries.filter(e => _dictFilter === 'all' || e.source === _dictFilter);
+  if (query) rows = rows.filter(e => e.term.toLowerCase().includes(query));
+  rows = [...rows].sort((a, b) =>
+    _dictSortNewestFirst ? b.created_at.localeCompare(a.created_at) : a.term.localeCompare(b.term));
+
+  $('dict-list').innerHTML = rows.map(e =>
+    `<div class="list-row">
+      <span>${escapeHtml(e.term)} ${e.source === 'learned' ? `<span class="badge">${t('dict.filter_learned')}</span>` : ''}</span>
+      <span class="row-del-btn" onclick="deleteDictEntry('${e.id}')"><i class="ti ti-trash"></i></span>
+    </div>`).join('') ||
+    `<div class="list-row text-[var(--text-secondary)]">${_dictEntries.length ? t('dict.empty_filtered') : t('dict.empty')}</div>`;
+}
+
 async function addDictEntry() {
   if (!$('dict-term').value.trim()) return;
   await pywebview.api.add_dictionary_entry($('dict-term').value, 'manual');
@@ -424,39 +2094,238 @@ async function addDictEntry() {
 }
 async function deleteDictEntry(id) { await pywebview.api.delete_dictionary_entry(id); loadDictionary(); }
 
+let _snipEntries = [];
+let _snipFilter = 'all';
+let _snipSortNewestFirst = true;
+
 async function loadSnippets() {
-  const snips = await pywebview.api.list_snippets();
-  $('snip-list').innerHTML = snips.map(s =>
-    `<div class="list-row">
-      <span><b>${escapeHtml(s.trigger)}</b> &rarr; ${escapeHtml(s.expansion)} ${s.is_builtin ? '<span class="badge">Built-in</span>' : ''}</span>
-      <button onclick="deleteSnippet('${s.id}')" class="btn-danger-text">Delete</button>
-    </div>`).join('') || '<div class="list-row text-[var(--text-secondary)]">No snippets yet.</div>';
+  _snipEntries = await pywebview.api.list_snippets();
+  renderSnipFilterTabs();
+  renderSnipBanner();
+  renderSnipList();
+  const s = await pywebview.api.get_settings();
+  $('snip-banner').classList.toggle('hidden', !!s.ui_snippets_banner_dismissed);
 }
+
+function renderSnipFilterTabs() {
+  const tabs = [['all', 'snip.filter_all'], ['builtin', 'snip.filter_builtin'], ['custom', 'snip.filter_custom']];
+  $('snip-filter-tabs').innerHTML = tabs.map(([id, key]) =>
+    `<span class="insights-subtab ${_snipFilter === id ? 'active' : ''}" onclick="setSnipFilter('${id}')">${t(key)}</span>`).join('');
+}
+function setSnipFilter(filterId) { _snipFilter = filterId; renderSnipFilterTabs(); renderSnipList(); }
+
+async function dismissSnipBanner() {
+  $('snip-banner').classList.add('hidden');
+  const current = await pywebview.api.get_settings();
+  current.ui_snippets_banner_dismissed = true;
+  await pywebview.api.save_settings(current);
+}
+function renderSnipBanner() {
+  const examples = _snipEntries.slice(0, 5);
+  $('snip-banner-pills').innerHTML =
+    `<span class="dict-pill dict-pill-primary" onclick="focusSnipAddInput()">${t('snip.add_new')}</span>` +
+    examples.map(s => `<span class="dict-pill">${escapeHtml(s.trigger)} &rarr; ${escapeHtml(s.expansion)}</span>`).join('');
+}
+
+function focusSnipAddInput() {
+  const el = $('snip-trigger');
+  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+}
+
+function toggleSnipSearch() {
+  const wrap = $('snip-search-wrap');
+  wrap.classList.toggle('open');
+  if (wrap.classList.contains('open')) $('snip-search').focus();
+  else { $('snip-search').value = ''; renderSnipList(); }
+}
+function toggleSnipSort() {
+  _snipSortNewestFirst = !_snipSortNewestFirst;
+  $('snip-sort-icon').className = _snipSortNewestFirst ? 'ti ti-sort-descending-2' : 'ti ti-sort-ascending-2';
+  renderSnipList();
+}
+
+function renderSnipList() {
+  const query = ($('snip-search').value || '').trim().toLowerCase();
+  let rows = _snipEntries.filter(s => _snipFilter === 'all' || (_snipFilter === 'builtin') === s.is_builtin);
+  if (query) rows = rows.filter(s => s.trigger.toLowerCase().includes(query) || s.expansion.toLowerCase().includes(query));
+  rows = [...rows].sort((a, b) =>
+    _snipSortNewestFirst ? b.created_at.localeCompare(a.created_at) : a.trigger.localeCompare(b.trigger));
+
+  $('snip-list').innerHTML = rows.map(s => `
+    <div class="dict-recent-row" data-snip-id="${s.id}">
+      <span class="dict-recent-text" id="snip-text-${s.id}">
+        <b>${escapeHtml(s.trigger)}</b> &rarr; ${escapeHtml(s.expansion)} ${s.is_builtin ? `<span class="badge">${t('snip.filter_builtin')}</span>` : ''}
+      </span>
+      <button class="dict-recent-menu-btn" onclick="toggleSnipMenu(event,'${s.id}')"><i class="ti ti-dots"></i></button>
+      <div class="dict-recent-menu" id="snip-menu-${s.id}">
+        <div class="dict-recent-menu-item" onclick="editSnipRow('${s.id}')"><i class="ti ti-pencil"></i> ${t('menu.edit')}</div>
+        <div class="dict-recent-menu-item danger" onclick="deleteSnippet('${s.id}')"><i class="ti ti-trash"></i> ${t('menu.delete')}</div>
+      </div>
+    </div>`).join('') ||
+    `<div class="dict-recent-empty">${_snipEntries.length ? t('snip.empty_filtered') : t('snip.empty')}</div>`;
+}
+
+function closeAllSnipMenus() {
+  document.querySelectorAll('[id^="snip-menu-"].open').forEach(m => m.classList.remove('open'));
+}
+function toggleSnipMenu(e, id) {
+  e.stopPropagation();
+  const menu = $('snip-menu-' + id);
+  const isOpen = menu.classList.contains('open');
+  closeAllSnipMenus();
+  if (!isOpen) menu.classList.add('open');
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[id^="snip-menu-"]') && !e.target.closest('.dict-recent-menu-btn')) closeAllSnipMenus();
+});
+
+function editSnipRow(id) {
+  closeAllSnipMenus();
+  const snip = _snipEntries.find(s => s.id === id);
+  if (!snip) return;
+  const textEl = $('snip-text-' + id);
+  textEl.innerHTML = `
+    <div class="flex flex-wrap gap-2">
+      <input class="px-2 py-1 w-32" id="snip-edit-trigger-${id}" value="${escapeHtml(snip.trigger)}" />
+      <input class="px-2 py-1 flex-1 min-w-[160px]" id="snip-edit-expansion-${id}" value="${escapeHtml(snip.expansion)}" />
+      <button class="btn btn-secondary shrink-0" onclick="saveSnipEdit('${id}')">${t('snip.save')}</button>
+    </div>`;
+  const triggerInput = $('snip-edit-trigger-' + id);
+  triggerInput.focus();
+  const onEsc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); renderSnipList(); } };
+  triggerInput.addEventListener('keydown', onEsc);
+  $('snip-edit-expansion-' + id).addEventListener('keydown', onEsc);
+}
+async function saveSnipEdit(id) {
+  const trigger = $('snip-edit-trigger-' + id).value;
+  const expansion = $('snip-edit-expansion-' + id).value;
+  await pywebview.api.update_snippet(id, trigger, expansion);
+  loadSnippets();
+}
+
 async function addSnippet() {
   if (!$('snip-trigger').value.trim()) return;
   await pywebview.api.add_snippet($('snip-trigger').value, $('snip-expansion').value);
   $('snip-trigger').value = ''; $('snip-expansion').value = ''; loadSnippets();
 }
-async function deleteSnippet(id) { await pywebview.api.delete_snippet(id); loadSnippets(); }
+async function deleteSnippet(id) { closeAllSnipMenus(); await pywebview.api.delete_snippet(id); loadSnippets(); }
+
+let _scratchNotes = [];
+let _scratchSelectedId = null;
+let _scratchSaveTimer = null;
+
+function relativeTime(iso) {
+  if (!iso) return '';
+  const diffMs = new Date(iso.replace(' ', 'T') + (iso.endsWith('Z') ? '' : 'Z')) - new Date();
+  const mins = Math.round(diffMs / 60000);
+  const abs = Math.abs(mins);
+  if (abs < 1) return 'just now';
+  if (abs < 60) return mins < 0 ? `${abs} minute${abs === 1 ? '' : 's'} ago` : `in ${abs} minute${abs === 1 ? '' : 's'}`;
+  const hrs = Math.round(mins / 60);
+  if (Math.abs(hrs) < 24) return hrs < 0 ? `${Math.abs(hrs)}h ago` : `in ${hrs}h`;
+  const days = Math.round(hrs / 24);
+  return days < 0 ? `${Math.abs(days)}d ago` : `in ${days}d`;
+}
+
+async function loadScratchpad() {
+  const s = await pywebview.api.get_settings();
+  $('scratch-flowbar-toggle').checked = !!s.scratchpad_in_pill;
+  _scratchNotes = await pywebview.api.list_scratchpad_notes();
+  renderScratchpadList();
+  if (_scratchSelectedId && _scratchNotes.some(n => n.id === _scratchSelectedId)) selectScratchpadNote(_scratchSelectedId);
+  else if (_scratchNotes.length) selectScratchpadNote(_scratchNotes[0].id);
+  else showScratchpadEmpty();
+}
+async function searchScratchpad() {
+  const q = $('scratch-search').value.trim();
+  _scratchNotes = q ? await pywebview.api.search_scratchpad_notes(q) : await pywebview.api.list_scratchpad_notes();
+  renderScratchpadList();
+}
+function renderScratchpadList() {
+  $('scratch-list').innerHTML = _scratchNotes.map(n =>
+    `<div class="scratch-note-item ${n.id === _scratchSelectedId ? 'active' : ''}" onclick="selectScratchpadNote('${n.id}')">
+      <div class="scratch-note-title">${escapeHtml(n.title)}</div>
+      <div class="scratch-note-preview">${escapeHtml((n.content || '').replace(/\s+/g, ' ').trim()) || 'No content'}</div>
+      <div class="scratch-note-time">${relativeTime(n.updated_at)}</div>
+      <div class="scratch-note-del" onclick="event.stopPropagation(); deleteScratchpadNote('${n.id}')"><i class="ti ti-trash"></i></div>
+    </div>`).join('') || '<div class="scratch-list-empty">No notes found.</div>';
+}
+function showScratchpadEmpty() {
+  _scratchSelectedId = null;
+  $('scratch-editor').classList.add('hidden');
+  $('scratch-empty').classList.remove('hidden');
+}
+function selectScratchpadNote(id) {
+  const note = _scratchNotes.find(n => n.id === id);
+  if (!note) return;
+  _scratchSelectedId = id;
+  $('scratch-empty').classList.add('hidden');
+  $('scratch-editor').classList.remove('hidden');
+  $('scratch-title').value = note.title;
+  $('scratch-content').value = note.content;
+  $('scratch-updated').textContent = 'Updated ' + relativeTime(note.updated_at);
+  renderScratchpadList();
+}
+async function newScratchpadNote() {
+  const note = await pywebview.api.create_scratchpad_note('Untitled', '');
+  _scratchNotes.unshift(note);
+  selectScratchpadNote(note.id);
+  $('scratch-title').focus();
+  $('scratch-title').select();
+}
+function scheduleScratchpadSave() {
+  clearTimeout(_scratchSaveTimer);
+  _scratchSaveTimer = setTimeout(saveScratchpadNote, 500);
+}
+async function saveScratchpadNote() {
+  if (!_scratchSelectedId) return;
+  const result = await pywebview.api.update_scratchpad_note(_scratchSelectedId, $('scratch-title').value, $('scratch-content').value);
+  if (result.ok) {
+    const idx = _scratchNotes.findIndex(n => n.id === _scratchSelectedId);
+    if (idx !== -1) _scratchNotes[idx] = result;
+    $('scratch-updated').textContent = 'Updated ' + relativeTime(result.updated_at);
+    renderScratchpadList();
+  }
+}
+async function deleteScratchpadNote(id) {
+  const targetId = id || _scratchSelectedId;
+  if (!targetId) return;
+  await pywebview.api.delete_scratchpad_note(targetId);
+  _scratchNotes = _scratchNotes.filter(n => n.id !== targetId);
+  if (targetId === _scratchSelectedId) {
+    if (_scratchNotes.length) selectScratchpadNote(_scratchNotes[0].id);
+    else showScratchpadEmpty();
+  }
+  renderScratchpadList();
+}
+$('scratch-title')?.addEventListener('input', scheduleScratchpadSave);
+$('scratch-content')?.addEventListener('input', scheduleScratchpadSave);
+async function toggleScratchpadInPill() {
+  await pywebview.api.set_scratchpad_in_pill($('scratch-flowbar-toggle').checked);
+}
 
 async function loadMeetings() {
   const meetings = await pywebview.api.list_meetings(20);
   $('meeting-list').innerHTML = meetings.map(m =>
-    `<div class="card p-4 meeting-summary">
-      <div class="text-[var(--text-secondary)] text-xs mb-1">${(m.started_at||'').slice(0,19)}</div>
+    `<div class="card p-4 meeting-summary" style="position:relative">
+      <div class="flex items-center justify-between mb-1">
+        <div class="text-[var(--text-secondary)] text-xs">${(m.started_at||'').slice(0,19)}</div>
+        <span class="row-del-btn" onclick="deleteMeeting('${m.id}')"><i class="ti ti-trash"></i></span>
+      </div>
       <div>${typeof marked !== 'undefined' ? marked.parse(m.summary || '(no summary)') : escapeHtml(m.summary||'(no summary)')}</div>
-    </div>`).join('') || '<div class="text-[var(--text-secondary)]">No meetings recorded yet.</div>';
+    </div>`).join('') || `<div class="text-[var(--text-secondary)]">${t('note.empty')}</div>`;
 }
+async function deleteMeeting(id) { await pywebview.api.delete_meeting(id); loadMeetings(); }
 
 function renderRegistryRows(stage, rows) {
   return rows.map(a => `<div class="list-row">
     <span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.provider)} &middot; ${escapeHtml(a.base_url)} &middot; ${escapeHtml(a.model_id)}</span>
     <span class="flex items-center gap-2">
-      ${a.is_active ? '<span class="badge" style="color:var(--success)">Active</span>'
-                     : `<button class="btn btn-secondary" onclick="activateRegistry('${stage}', ${a.id})">Activate</button>`}
-      <button class="btn btn-secondary" onclick="deleteRegistry('${stage}', ${a.id})">Delete</button>
+      ${a.is_active ? `<span class="badge" style="color:var(--success)">${t('registry.active')}</span>`
+                     : `<button class="btn btn-secondary" onclick="activateRegistry('${stage}', ${a.id})">${t('registry.activate')}</button>`}
+      <button class="btn btn-secondary" onclick="deleteRegistry('${stage}', ${a.id})">${t('menu.delete')}</button>
     </span>
-  </div>`).join('') || '<div class="list-row text-[var(--text-secondary)]">No entries yet.</div>';
+  </div>`).join('') || `<div class="list-row text-[var(--text-secondary)]">${t('registry.no_entries')}</div>`;
 }
 
 async function loadRegistry() {
@@ -505,7 +2374,7 @@ async function testAndSaveRegistry(stage) {
 async function loadSettings() {
   const s = await pywebview.api.get_settings();
   $('s-trigger-mode').value = s.trigger_mode;
-  $('s-trigger-mode-label').textContent = s.trigger_mode === 'hold' ? 'Hold to talk' : 'Tap twice to start, once to stop';
+  $('s-trigger-mode-label').textContent = s.trigger_mode === 'hold' ? t('mode.hold.label') : t('mode.toggle.sub');
   $('th-dictate').textContent = formatHotkeySpec(s.hotkey);
   $('s-languages').value = s.language_allowlist.join(', ');
   $('s-retain-history').checked = s.retain_history;
@@ -514,7 +2383,7 @@ async function loadSettings() {
 
   const devices = await pywebview.api.list_input_devices();
   const sel = $('s-input-device');
-  sel.innerHTML = '<option value="">System default</option>' +
+  sel.innerHTML = `<option value="">${t('settings.system_default')}</option>` +
     devices.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
   sel.value = s.input_device_id || '';
 }
@@ -532,10 +2401,23 @@ async function saveSettings() {
   loadSettings();
 }
 $('s-trigger-mode').addEventListener('change', () => {
-  $('s-trigger-mode-label').textContent = $('s-trigger-mode').value === 'hold' ? 'Hold to talk' : 'Tap twice to start, once to stop';
+  $('s-trigger-mode-label').textContent = $('s-trigger-mode').value === 'hold' ? t('mode.hold.label') : t('mode.toggle.sub');
 });
 
-loadTab('dictation');
+// pywebview injects window.pywebview.api asynchronously after the page
+// loads - calling it immediately on a fresh/cold start can race ahead of
+// that injection (worse with a bigger page to parse first) and silently
+// leave the initial tab's dynamic content blank. Wait for the ready event
+// (or for the API to already be there, e.g. on a hot reload) before the
+// first load.
+function whenApiReady(fn) {
+  if (window.pywebview && window.pywebview.api) { fn(); }
+  else { window.addEventListener('pywebviewready', fn, { once: true }); }
+}
+whenApiReady(async () => {
+  await initUiPrefs();
+  await loadTab('dictation');
+});
 </script>
 </body>
 </html>

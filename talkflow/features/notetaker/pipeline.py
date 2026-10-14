@@ -76,6 +76,15 @@ def _save(session_id: str, started_at: str, transcript: str, summary: str) -> No
         conn.close()
 
 
+def delete_meeting(session_id: str) -> None:
+    conn = connect()
+    try:
+        conn.execute("DELETE FROM notetaker_sessions WHERE id=?", (session_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def list_meetings(limit: int = 20) -> list[dict]:
     conn = connect()
     try:

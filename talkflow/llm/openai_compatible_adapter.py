@@ -67,10 +67,15 @@ class OpenAiCompatibleAdapter(LlmAdapter):
         dictionary_terms: list[str] | None = None,
         snippet_candidates: list[tuple[str, str]] | None = None,
         previous_text: str | None = None,
+        cleanup_level: str = "light",
     ) -> CleanupResult:
+        if cleanup_level == "none":
+            # No LLM call at all - transcribes exactly what was said, including
+            # mistakes, filler words and missing punctuation. Zero added latency/cost.
+            return CleanupResult(cleaned_text=raw_transcript, model_used="(none)", latency_ms=0.0)
         messages = build_messages(
             raw_transcript, language, formality_name, formality_instruction,
-            target_process_name, dictionary_terms, previous_text,
+            target_process_name, dictionary_terms, previous_text, cleanup_level,
         )
         # Cleaned text is never much longer than the transcript; the cap stops
         # a model that starts rambling from holding up the paste.

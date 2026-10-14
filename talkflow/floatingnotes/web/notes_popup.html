@@ -1,0 +1,280 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>TalkFlow Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.49.0/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #f6f4ef; --card: #ffffff; --border: #e7e3d9; --border-strong: #d8d3c5;
+    --text: #1c1b17; --text-secondary: #6b6a60; --text-muted: #9a988c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--card); color: var(--text); font-size: 13px;
+    border: 1px solid var(--border-strong); border-radius: 16px; overflow: hidden;
+    display: flex; flex-direction: column; height: 100vh; position: relative;
+  }
+  .nodrag { -webkit-app-region: no-drag; }
+  .hidden { display: none !important; }
+
+  #header {
+    display: flex; align-items: center; gap: 6px; padding: 8px 8px 8px 12px;
+    border-bottom: 1px solid var(--border); background: #faf8f3; shrink: 0;
+  }
+  #header .brand { display: flex; align-items: center; gap: 6px; font-weight: 650; font-size: 12.5px; color: var(--text-secondary); }
+  #header .brand i { font-size: 15px; }
+  .iconbtn {
+    width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); font-size: 14px; cursor: pointer;
+  }
+  .iconbtn:hover { background: #efece3; color: var(--text); }
+  .iconbtn.danger:hover { background: #fdeceb; color: #c0392b; }
+  #spacer { flex: 1; }
+
+  #tabs { display: flex; align-items: stretch; overflow-x: auto; background: #faf8f3; padding: 0 4px; shrink: 0; }
+  .tab {
+    display: flex; align-items: center; gap: 6px; padding: 7px 10px; font-size: 12px; white-space: nowrap;
+    border-bottom: 2px solid transparent; color: var(--text-secondary); cursor: pointer; max-width: 120px;
+  }
+  .tab span { overflow: hidden; text-overflow: ellipsis; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); font-weight: 600; }
+  .tab .x { opacity: 0; font-size: 12px; }
+  .tab:hover .x { opacity: .6; }
+  .tab .x:hover { opacity: 1; }
+  #tab-add { display: flex; align-items: center; padding: 0 8px; color: var(--text-secondary); cursor: pointer; }
+  #tab-add:hover { color: var(--text); }
+
+  #body { flex: 1; display: flex; min-height: 0; }
+  #sidebar {
+    width: 150px; shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    background: #faf8f3;
+  }
+  #sidebar.hidden { display: none; }
+  #sidebar-search-wrap { position: relative; padding: 8px; }
+  #sidebar-search-wrap i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-muted); }
+  #sidebar-search { width: 100%; padding: 5px 8px 5px 24px; border-radius: 8px; border: 1px solid var(--border); font-size: 11.5px; background: var(--card); }
+  #sidebar-search:focus { outline: none; border-color: var(--border-strong); }
+  #sidebar-list { flex: 1; overflow-y: auto; padding: 0 4px 8px; }
+  .side-note { padding: 7px 8px; border-radius: 8px; cursor: pointer; margin-bottom: 1px; position: relative; }
+  .side-note:hover { background: #efece3; }
+  .side-note .t { font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 18px; }
+  .side-note .p { font-size: 10.5px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .side-note .del {
+    position: absolute; right: 6px; top: 6px; width: 18px; height: 18px; border-radius: 6px;
+    display: none; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 11px;
+  }
+  .side-note:hover .del { display: flex; }
+  .side-note .del:hover { background: #fdeceb; color: #c0392b; }
+
+  #content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #empty { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; color: var(--text-muted); }
+  #empty i { font-size: 26px; opacity: .5; }
+  #empty p { font-size: 12px; }
+  #note-title { border: none; font-size: 14px; font-weight: 650; padding: 10px 14px 6px; }
+  #note-title:focus { outline: none; }
+  #note-content { flex: 1; border: none; resize: none; padding: 0 14px; font-size: 12.5px; line-height: 1.55; }
+  #note-content:focus { outline: none; }
+  #footer { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-top: 1px solid var(--border); shrink: 0; }
+  #footer .flex-row { display: flex; align-items: center; gap: 4px; }
+  #hint { font-size: 10.5px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+  #hint.hidden { display: none; }
+  #hint i { font-size: 11px; }
+
+  #resize-grip {
+    position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize;
+    background:
+      linear-gradient(135deg, transparent 0 50%, var(--border-strong) 50% 58%, transparent 58% 65%, var(--border-strong) 65% 73%, transparent 73%);
+  }
+  #copy-btn {
+    background: #1c1b17; color: #fff; border: none; border-radius: 999px; padding: 6px 14px;
+    font-size: 11.5px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;
+  }
+  #copy-btn:hover { opacity: .88; }
+</style>
+</head>
+<body>
+  <div id="header">
+    <div class="brand pywebview-drag-region"><i class="ti ti-notes"></i>Notes</div>
+    <div id="spacer" class="pywebview-drag-region"></div>
+    <div class="iconbtn" id="toggle-sidebar-btn" title="Browse notes" onclick="toggleSidebar()"><i class="ti ti-layout-sidebar"></i></div>
+    <div class="iconbtn" title="New note" onclick="openNewTab()"><i class="ti ti-plus"></i></div>
+    <div class="iconbtn danger" title="Close" onclick="closePopup()"><i class="ti ti-x"></i></div>
+  </div>
+  <div id="tabs" class="nodrag"></div>
+  <div id="body">
+    <div id="sidebar" class="hidden nodrag">
+      <div id="sidebar-search-wrap"><i class="ti ti-search"></i><input id="sidebar-search" placeholder="Search notes…" oninput="renderSidebarList()" /></div>
+      <div id="sidebar-list"></div>
+    </div>
+    <div id="content">
+      <div id="empty"><i class="ti ti-notes"></i><p>No note open — click + to start one</p></div>
+      <input id="note-title" class="nodrag hidden" placeholder="Untitled" />
+      <textarea id="note-content" class="nodrag hidden" placeholder="Start typing or dictate…"></textarea>
+    </div>
+  </div>
+  <div id="footer">
+    <span id="hint"><i class="ti ti-microphone-2"></i>Caps Lock to dictate</span>
+    <div class="flex-row">
+      <div class="iconbtn danger" title="Delete note" onclick="deleteActiveNote()"><i class="ti ti-trash"></i></div>
+      <button id="copy-btn" onclick="copyActive()"><i class="ti ti-copy"></i>Copy</button>
+    </div>
+  </div>
+  <div id="resize-grip" class="nodrag" title="Drag to resize"></div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+
+let _allNotes = [];
+let _openTabs = [];   // [{id, title}]
+let _activeId = null;
+let _saveTimer = null;
+
+async function init() {
+  _allNotes = await pywebview.api.list_scratchpad_notes();
+  renderSidebarList();
+  if (_allNotes.length) openTab(_allNotes[0].id);
+}
+
+function toggleSidebar() { $('sidebar').classList.toggle('hidden'); }
+
+async function renderSidebarList() {
+  const q = $('sidebar-search').value.trim();
+  const notes = q ? await pywebview.api.search_scratchpad_notes(q) : await pywebview.api.list_scratchpad_notes();
+  $('sidebar-list').innerHTML = notes.map(n =>
+    `<div class="side-note" onclick="openTab('${n.id}')">
+      <div class="t">${escapeHtml(n.title)}</div>
+      <div class="p">${escapeHtml((n.content||'').slice(0,40))}</div>
+      <div class="del" onclick="event.stopPropagation(); deleteNote('${n.id}')"><i class="ti ti-trash"></i></div>
+    </div>`).join('') || '<div class="side-note" style="color:var(--text-muted)">No notes</div>';
+}
+
+function escapeHtml(s) { return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function openNewTab() {
+  const note = await pywebview.api.create_scratchpad_note('Untitled', '');
+  _allNotes.unshift(note);
+  _openTabs.push({ id: note.id, title: note.title });
+  setActive(note.id);
+  renderTabs();
+  renderSidebarList();
+  $('note-title').focus();
+}
+
+function openTab(id) {
+  if (!_openTabs.some(t => t.id === id)) {
+    const note = _allNotes.find(n => n.id === id);
+    _openTabs.push({ id, title: note ? note.title : 'Untitled' });
+  }
+  setActive(id);
+  renderTabs();
+}
+
+function closeTab(id, evt) {
+  if (evt) evt.stopPropagation();
+  _openTabs = _openTabs.filter(t => t.id !== id);
+  if (_activeId === id) {
+    setActive(_openTabs.length ? _openTabs[_openTabs.length - 1].id : null);
+  }
+  renderTabs();
+}
+
+async function setActive(id) {
+  _activeId = id;
+  if (!id) {
+    $('empty').classList.remove('hidden');
+    $('note-title').classList.add('hidden');
+    $('note-content').classList.add('hidden');
+    return;
+  }
+  const note = _allNotes.find(n => n.id === id) || await pywebview.api.list_scratchpad_notes().then(l => l.find(n => n.id === id));
+  $('empty').classList.add('hidden');
+  $('note-title').classList.remove('hidden');
+  $('note-content').classList.remove('hidden');
+  $('note-title').value = note ? note.title : '';
+  $('note-content').value = note ? note.content : '';
+  renderTabs();
+  updateHintVisibility();
+}
+
+function updateHintVisibility() {
+  const hasContent = $('note-content').value.trim().length > 0;
+  $('hint').classList.toggle('hidden', hasContent);
+}
+
+function renderTabs() {
+  $('tabs').innerHTML = _openTabs.map(t =>
+    `<div class="tab ${t.id === _activeId ? 'active' : ''}" onclick="openTab('${t.id}')">
+      <span>${escapeHtml(t.title || 'Untitled')}</span>
+      <span class="x" onclick="closeTab('${t.id}', event)"><i class="ti ti-x"></i></span>
+    </div>`).join('');
+}
+
+function scheduleSave() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveActive, 500);
+}
+async function saveActive() {
+  if (!_activeId) return;
+  const result = await pywebview.api.update_scratchpad_note(_activeId, $('note-title').value, $('note-content').value);
+  if (result.ok) {
+    const idx = _allNotes.findIndex(n => n.id === _activeId);
+    if (idx !== -1) _allNotes[idx] = result;
+    const tab = _openTabs.find(t => t.id === _activeId);
+    if (tab) tab.title = result.title;
+    renderTabs();
+    renderSidebarList();
+  }
+}
+
+async function copyActive() {
+  if (!_activeId) return;
+  try { await navigator.clipboard.writeText($('note-content').value); } catch (e) {}
+  const btn = $('copy-btn');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<i class="ti ti-check"></i>Copied';
+  setTimeout(() => { btn.innerHTML = orig; }, 1200);
+}
+
+async function deleteNote(id) {
+  await pywebview.api.delete_scratchpad_note(id);
+  _allNotes = _allNotes.filter(n => n.id !== id);
+  closeTab(id);
+  renderSidebarList();
+}
+
+function deleteActiveNote() {
+  if (_activeId) deleteNote(_activeId);
+}
+
+function closePopup() { pywebview.api.hide_floating_notes(); }
+
+$('note-title').addEventListener('input', scheduleSave);
+$('note-content').addEventListener('input', () => { scheduleSave(); updateHintVisibility(); });
+
+// Frameless windows have no native OS resize border, so this corner handle
+// drives it directly via the Python side (window.resize()).
+let _resizing = false, _startX = 0, _startY = 0, _startW = 0, _startH = 0, _resizeRaf = null;
+$('resize-grip').addEventListener('mousedown', (e) => {
+  _resizing = true; _startX = e.screenX; _startY = e.screenY;
+  _startW = document.documentElement.clientWidth; _startH = document.documentElement.clientHeight;
+  e.preventDefault();
+});
+window.addEventListener('mousemove', (e) => {
+  if (!_resizing) return;
+  const w = Math.max(260, _startW + (e.screenX - _startX));
+  const h = Math.max(300, _startH + (e.screenY - _startY));
+  if (_resizeRaf) cancelAnimationFrame(_resizeRaf);
+  _resizeRaf = requestAnimationFrame(() => pywebview.api.resize_floating_notes(w, h));
+});
+window.addEventListener('mouseup', () => { _resizing = false; });
+
+window.addEventListener('pywebviewready', init);
+</script>
+</body>
+</html>

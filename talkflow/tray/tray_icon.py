@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 from typing import Callable
 
 from PIL import Image, ImageDraw
 import pystray
 
+_ICON_PATH = Path(__file__).resolve().parent.parent / "assets" / "icon.png"
+
 
 def _make_icon_image() -> Image.Image:
+    if _ICON_PATH.exists():
+        return Image.open(_ICON_PATH).convert("RGBA")
+    # Fallback if assets/icon.png is missing (e.g. a dev checkout without it).
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.ellipse((4, 4, 60, 60), fill=(30, 30, 35, 255))
@@ -21,7 +27,9 @@ class TrayIcon:
                  on_toggle_meeting: Callable[[], None] | None = None,
                  meeting_active: Callable[[], bool] | None = None):
         self._meeting_active = meeting_active or (lambda: False)
-        items = [pystray.MenuItem("Open TalkFlow", lambda: on_open_main())]
+        # default=True makes this the action triggered by double-clicking
+        # the tray icon (Windows' MFS_DEFAULT), not just a menu entry.
+        items = [pystray.MenuItem("Open TalkFlow", lambda: on_open_main(), default=True)]
         if on_toggle_meeting:
             items.append(pystray.MenuItem(
                 lambda item: "Stop Meeting Recording" if self._meeting_active() else "Start Meeting Recording",

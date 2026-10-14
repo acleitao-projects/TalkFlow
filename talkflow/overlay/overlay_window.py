@@ -132,6 +132,8 @@ class OverlayWindow:
         self._tracking = False
         self.on_cancel: Callable[[], None] | None = None
         self.on_confirm: Callable[[], None] | None = None
+        self.on_notes_click: Callable[[], None] | None = None
+        self._flow_bar_enabled = False
 
     # ---- lifecycle -------------------------------------------------------
 
@@ -150,11 +152,33 @@ class OverlayWindow:
             win32gui.RegisterClass(wc)
         except win32gui.error:
             pass  # already registered
+
+        # An unowned WS_EX_TOOLWINDOW popup still shows up on the Windows 11
+        # taskbar in practice (a known shell quirk - the style alone isn't
+        # honored without an owner). Giving it a hidden owner window makes
+        # Windows actually exclude it, which also sidesteps needing to set an
+        # icon on it at all (it falls back to pythonw.exe's own icon, a
+        # generic "python file" glyph, when none is set - not worth fixing
+        # since the window shouldn't be in the taskbar in the first place).
+        owner_class = WINDOW_CLASS + "Owner"
+        owner_wc = win32gui.WNDCLASS()
+        owner_wc.hInstance = wc.hInstance
+        owner_wc.lpszClassName = owner_class
+        owner_wc.lpfnWndProc = win32gui.DefWindowProc
+        try:
+            win32gui.RegisterClass(owner_wc)
+        except win32gui.error:
+            pass
+        owner_hwnd = win32gui.CreateWindowEx(
+            0, owner_class, "TalkFlowOverlayOwner", win32con.WS_POPUP,
+            0, 0, 0, 0, 0, 0, wc.hInstance, None,
+        )
+
         ex = (win32con.WS_EX_LAYERED | win32con.WS_EX_TOPMOST |
               win32con.WS_EX_TOOLWINDOW | win32con.WS_EX_NOACTIVATE)
         self._hwnd = win32gui.CreateWindowEx(
             ex, WINDOW_CLASS, "TalkFlowOverlay", win32con.WS_POPUP,
-            0, 0, 10, 10, 0, 0, wc.hInstance, None,
+            0, 0, 10, 10, owner_hwnd, 0, wc.hInstance, None,
         )
         try:
             self._scale = _user32.GetDpiForWindow(self._hwnd) / 96.0
@@ -192,7 +216,7 @@ class OverlayWindow:
                 y = win32api.HIWORD(lparam) / self._scale
                 for name, (x0, y0, x1, y1) in self._buttons.items():
                     if x0 <= x <= x1 and y0 <= y <= y1:
-                        cb = self.on_cancel if name == "cancel" else self.on_confirm
+                        cb = {"cancel": self.on_cancel, "notes": self.on_notes_click}.get(name, self.on_confirm)
                         if cb:
                             threading.Thread(target=cb, daemon=True).start()
                         break
@@ -288,6 +312,16 @@ class OverlayWindow:
             d.line([cx * u, (cy + 6 * k) * u, cx * u, (cy + 9 * k) * u], fill=color,
                    width=max(1, round(1.5 * k * u)))
 
+        def notes_icon(cx, cy, color):
+            w, h = 7, 8.5
+            d.rounded_rectangle([(cx - w) * u, (cy - h) * u, (cx + w) * u, (cy + h) * u],
+                                radius=1.6 * u, outline=color, width=max(1, round(1.2 * u)))
+            for i, frac in enumerate((0.35, 0.0, 0.35)):
+                ly = cy + (i - 1) * 3.4
+                lw = w * (1 - abs(frac))
+                d.line([(cx - lw * 0.55) * u, ly * u, (cx + lw * 0.55) * u, ly * u],
+                       fill=color, width=max(1, round(1.0 * u)))
+
         solid = _FILL + (255,)
         edge = (255, 255, 255, 70)
         white = (255, 255, 255, 255)
@@ -300,6 +334,16 @@ class OverlayWindow:
             x0 = (cw - 44) / 2
             pill(x0, bottom - 10, x0 + 44, bottom, _FILL + (120,), (255, 255, 255, 95))
         elif mode == "hover":
+            # A layered window hit-tests by alpha: a fully transparent pixel
+            # lets clicks/hover pass straight through to whatever's behind
+            # it. The tooltip bar, mic pill and notes icon are three separate
+            # opaque shapes with transparent gaps between them, so without
+            # this the cursor crossing a gap looks like "left the window" to
+            # TrackMouseEvent - hover drops, the pill shrinks back to idle,
+            # and a click aimed at a gap (or near one) never reaches us.
+            # Same trick "idle" mode already uses: a background at alpha=1 is
+            # visually invisible but still catches mouse input everywhere.
+            d.rectangle([0, 0, cw * u, ch * u], fill=(0, 0, 0, 1))
             tip_font, hk_font = _font(12 * u, bold=True), _font(12 * u)
             pill(0, 0, cw, 28, solid, edge)
             t1, t2 = "Dictate", ("  " + self._hint) if self._hint else ""
@@ -313,6 +357,17 @@ class OverlayWindow:
             mic(px0 + 24, 54, white, 0.9)
             circle(px0 + 52, 54, 10, outline=(255, 255, 255, 190), width=round(2 * u))
             circle(px0 + 52, 54, 4, fill=white)
+            # Notes icon sits in the existing right margin next to the mic
+            # pill - no canvas resize needed (cw already has room), which
+            # keeps the window's real hit-test bounds identical to what's
+            # drawn (a previous version resized the canvas for this and the
+            # icon ended up not reliably clickable).
+            if self._flow_bar_enabled:
+                nx0 = px0 + 76 + 6
+                if nx0 + 30 <= cw - 4:
+                    pill(nx0, 40, nx0 + 30, 68, solid, edge)
+                    notes_icon(nx0 + 15, 54, white)
+                    self._buttons["notes"] = (nx0, 40, nx0 + 30, 68)
         elif mode == "recording":
             pill(0, 0, cw, ch, solid, edge)
             cy = ch / 2
@@ -360,6 +415,10 @@ class OverlayWindow:
 
     def set_state(self, state: str) -> None:
         self._state = state
+        self._poke()
+
+    def set_flow_bar_enabled(self, enabled: bool) -> None:
+        self._flow_bar_enabled = enabled
         self._poke()
 
     def set_hotkey_hint(self, text: str) -> None:

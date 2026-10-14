@@ -11,8 +11,11 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import threading
+from pathlib import Path
 
 import webview
+
+ICON_PATH = Path(__file__).resolve().parent / "assets" / "icon.ico"
 
 from talkflow.asr.base import AsrAdapter
 from talkflow.asr.nemotron_sherpa_adapter import NemotronSherpaAdapter
@@ -25,6 +28,7 @@ from talkflow.features.notetaker.capture import MeetingRecorder
 from talkflow.features.notetaker.pipeline import process_meeting
 from talkflow.features.transforms.engine import TransformsEngine
 from talkflow.features.transforms.store import list_custom_transforms
+from talkflow.floatingnotes.window import FloatingNotesWindow
 from talkflow.history.db import init_db
 from talkflow.insertion.insertion_service import InsertionService
 from talkflow.llm.openai_compatible_adapter import OpenAiCompatibleAdapter
@@ -122,6 +126,7 @@ def build_orchestrator(overlay: OverlayWindow, llm: OpenAiCompatibleAdapter, ins
         on_state_change=on_state_change,
         partial_paste=settings.partial_paste_allowed(),
         incremental_asr=True,
+        cleanup_level=settings.cleanup_level,
     )
 
 
@@ -136,6 +141,13 @@ def main() -> None:
 
     main_window = MainWindow()
     main_window.create()
+
+    floating_notes = FloatingNotesWindow(main_window.api)
+    floating_notes.create()
+    main_window.api.overlay = overlay
+    main_window.api.floating_notes = floating_notes
+    overlay.on_notes_click = floating_notes.toggle
+    overlay.set_flow_bar_enabled(settings.scratchpad_in_pill)
 
     shared_llm = build_llm_adapter()
     shared_insertion = InsertionService(prefer_ui_automation=False)
@@ -348,7 +360,7 @@ def main() -> None:
     tray.run_in_background()
 
     logger.info("TalkFlow running. Hotkey=%s mode=%s", settings.hotkey, settings.trigger_mode)
-    webview.start()
+    webview.start(icon=str(ICON_PATH) if ICON_PATH.exists() else None)
 
 
 if __name__ == "__main__":
