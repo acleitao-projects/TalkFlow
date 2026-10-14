@@ -4,6 +4,12 @@ TalkFlow is a voice-typing app for Windows. Hold a hotkey, speak, and it types c
 
 It is a personal, independently written project. Its behavior is modeled on [Wispr Flow](https://wisprflow.ai), but it shares no code with it and is not affiliated with it.
 
+![TalkFlow main window](docs/screenshots/dictation.png)
+
+A small pill sits at the bottom of your screen. Hover over it to start a dictation or a meeting recording with the mouse, and watch it while you speak:
+
+![The floating pill: idle, hover and recording](docs/screenshots/pill.png)
+
 ## Features
 
 - **Dictation**: speak into any focused text field. Filler words, stutters and self-corrections are removed before the text is pasted.
@@ -16,6 +22,16 @@ It is a personal, independently written project. Its behavior is modeled on [Wis
 - **Command Mode**: speak an instruction to edit the selected text or search the web.
 - **Notetaker**: record a meeting (microphone and system audio) and get a transcript with a summary and action items.
 - **History**, a floating **Scratchpad**, and a **Model Registry** where each pipeline stage (speech recognition, cleanup) gets its own provider, model and API key.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Insights](docs/screenshots/insights.png) **Insights**: words per minute, apps, streaks, all computed locally | ![Style](docs/screenshots/style.png) **Style**: a formality preset per kind of app, with live previews |
+| ![Dictionary](docs/screenshots/dictionary.png) **Dictionary**: terms added by hand or learned from your edits | ![Transforms](docs/screenshots/transforms.png) **Transforms**: rewrite selected text with a hotkey |
+| ![Model Registry](docs/screenshots/model-registry.png) **Model Registry**: choose the provider and model for each stage | |
+
+Screenshots show sample data.
 
 ## Requirements
 

@@ -2321,7 +2321,7 @@ function renderRegistryRows(stage, rows) {
   return rows.map(a => `<div class="list-row">
     <span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.provider)} &middot; ${escapeHtml(a.base_url)} &middot; ${escapeHtml(a.model_id)}</span>
     <span class="flex items-center gap-2">
-      ${a.is_active ? `<span class="badge" style="color:var(--success)">${t('registry.active')}</span>`
+      ${a.is_active ? `<span class="badge" style="color:var(--success);flex-shrink:0;white-space:nowrap">${t('registry.active')}</span>`
                      : `<button class="btn btn-secondary" onclick="activateRegistry('${stage}', ${a.id})">${t('registry.activate')}</button>`}
       <button class="btn btn-secondary" onclick="deleteRegistry('${stage}', ${a.id})">${t('menu.delete')}</button>
     </span>
