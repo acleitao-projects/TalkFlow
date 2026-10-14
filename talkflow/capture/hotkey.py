@@ -134,6 +134,11 @@ class HotkeyController:
         self._active = False
         self._last_tap_time = 0.0
 
+    def mark_active(self) -> None:
+        """A recording was started some other way (the overlay's mic button):
+        the next hotkey press/release then stops it instead of starting one."""
+        self._active = True
+
     def _modifiers_satisfied(self) -> bool:
         if not all(_vk_down(vk) for vk in self._required_vks):
             return False

@@ -1,6 +1,6 @@
 """Notetaker's capture layer: mic (your voice) + WASAPI loopback (other
 participants' system audio) mixed into one mono stream. Confirmed working
-without admin rights via `soundcard` (see CLAUDE.md Risk 5 - resolved).
+without admin rights via `soundcard` (see the design notes' Risk 5 - resolved).
 
 On Windows, loopback only captures the default output device, so whatever
 meeting app is in use must be routed to that device (same caveat documented

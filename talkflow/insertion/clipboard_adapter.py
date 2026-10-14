@@ -1,6 +1,6 @@
 """Clipboard-paste insertion: snapshot current clipboard (text, best-effort),
 set the cleaned text, synthesize Ctrl+V, restore the original clipboard.
-This is the PRIMARY, always-available insertion path (see CLAUDE.md Risk 3)
+This is the PRIMARY, always-available insertion path (see the design notes' Risk 3)
 - UI Automation is layered in later as a per-app enhancement, not required
 for v1.
 

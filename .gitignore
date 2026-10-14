@@ -14,3 +14,7 @@ __pycache__/
 build/
 dist/
 *.exe
+
+# Local-only notes (not published)
+CLAUDE.md
+EVIDENCE_LEDGER.md

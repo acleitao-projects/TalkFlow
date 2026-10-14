@@ -8,7 +8,7 @@ from talkflow.insertion.ui_automation_adapter import UiAutomationAdapter
 class InsertionService:
     """Clipboard-paste is primary (always available); UI Automation is tried
     first only when explicitly enabled per-app once confirmed reliable there
-    (see CLAUDE.md Risk 3) - disabled by default for the v1 vertical slice."""
+    (see the design notes' Risk 3) - disabled by default for the v1 vertical slice."""
 
     def __init__(self, prefer_ui_automation: bool = False):
         self._ui = UiAutomationAdapter()

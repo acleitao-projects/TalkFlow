@@ -1,12 +1,12 @@
 """Auto-learn dictionary entries from a user-edited History transcript.
 
 Approximates Wispr's documented inclusion/exclusion rules (see
-EVIDENCE_LEDGER.md) without true NER: learns word-ish tokens that are NEW in
+Wispr's public help-center docs) without true NER: learns word-ish tokens that are NEW in
 the edited text vs. the original and look like a name/term (capitalized
 mid-sentence, or ALLCAPS acronym, or contains a non-ASCII/foreign character),
 while skipping file paths, URLs, emails, code-symbol-heavy tokens, and very
 common short words. This is a heuristic, not a claim of parity with Wispr's
-actual (undisclosed) learning model - see CLAUDE.md for that caveat.
+actual (undisclosed) learning model - see the project's design notes for that caveat.
 """
 from __future__ import annotations
 

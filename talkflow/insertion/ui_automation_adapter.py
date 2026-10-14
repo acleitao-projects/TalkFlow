@@ -2,7 +2,7 @@
 focused control's value directly (faster, no clipboard disturbance) when the
 control exposes ValuePattern; raises NotSupportedError otherwise so
 InsertionService can fall back to the clipboard path. Coverage is inherently
-inconsistent across apps (terminals, some Electron apps) - see CLAUDE.md Risk 3.
+inconsistent across apps (terminals, some Electron apps) - see the design notes' Risk 3.
 """
 from __future__ import annotations
 

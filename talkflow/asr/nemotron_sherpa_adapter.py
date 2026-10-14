@@ -14,7 +14,7 @@ kinds. That's a bug in NVIDIA's very-early (0.1.0) server binary, not in the
 model or in CPU inference generally: this exact model, exported to ONNX and
 run through sherpa-onnx (github.com/k2-fsa/sherpa-onnx, a mature, widely-used
 project - not an NVIDIA binary), transcribes the SAME recordings correctly.
-See CLAUDE.md for the full investigation.
+See the project's design notes for the full investigation.
 
 Running in-process (no Docker container, no gRPC) is also simpler than the
 Riva approach and removes a network hop; CPU-only is fine either way since

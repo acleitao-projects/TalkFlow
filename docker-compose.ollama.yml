@@ -1,6 +1,6 @@
 name: talkflow-local-stack
 # Local Ollama serving Gemma 3 1B for the cleanup stage, so that stage can run
-# offline without the Ollama Cloud dependency - see CLAUDE.md's "pipeline
+# offline without the Ollama Cloud dependency - see the project's design notes' "pipeline
 # stages are independently configurable"; swap base_url/model_id in the Model
 # Registry tab to use anything else.
 #
@@ -11,7 +11,7 @@ name: talkflow-local-stack
 # this hardware: GPU mode SIGSEGVs (missing Turing/compute-7.5 CUDA kernel for
 # an op used during warmup) and CPU mode loads and runs without crashing but
 # silently returns an empty transcript for every real speech sample tested -
-# see CLAUDE.md for the investigation. The model itself is fine; sherpa-onnx's
+# see the project's design notes for the investigation. The model itself is fine; sherpa-onnx's
 # int8 ONNX export of the same checkpoint transcribes correctly.
 services:
   ollama-local:
@@ -24,7 +24,7 @@ services:
       - ollama-local-data:/root/.ollama
     gpus: all
     # First run: docker exec talkflow-ollama-local ollama pull gemma3:1b
-    # (806MB, Q4_K_M by default - see CLAUDE.md). No API key needed; the
+    # (806MB, Q4_K_M by default - see the project's design notes). No API key needed; the
     # Model Registry's cleanup stage just points base_url at
     # http://localhost:11434 with model_id "gemma3:1b".
 

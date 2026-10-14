@@ -5,7 +5,7 @@ speaches container (http://localhost:8000, GPU-accelerated, default) or a
 cloud Whisper-compatible host - only base_url/model_id/api_key differ, both
 coming from the model registry. "Streaming" is implemented as rolling
 re-transcription of the growing audio buffer each time the VAD layer signals
-a chunk boundary, per CLAUDE.md's "chunked/rolling, not word-by-word" target
+a chunk boundary, per the project's design notes' "chunked/rolling, not word-by-word" target
 - faster-whisper (what speaches runs) has no native incremental-decoding API.
 
 Language handling: the allowlist isn't natively enforceable by the API, so

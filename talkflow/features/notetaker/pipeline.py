@@ -3,7 +3,7 @@ segments (so one very long meeting doesn't balloon a single ASR adapter's
 growing buffer or HTTP request), transcribe each segment independently,
 concatenate, then ask the cleanup-stage LLM for a summary + action items via
 its generic rewrite(). Stored separately from ordinary dictation history
-(notetaker_sessions table) per CLAUDE.md's "raw vs cleaned kept separate"
+(notetaker_sessions table) per the project's design notes' "raw vs cleaned kept separate"
 principle extended to this feature.
 """
 from __future__ import annotations

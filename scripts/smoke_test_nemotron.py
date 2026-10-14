@@ -9,7 +9,7 @@ Needs real speech, not a pure tone - this adapter correctly returns empty
 text for silence/non-speech, so there's nothing meaningful to show without a
 real recording. Requires the sherpa-onnx model directory at the path in
 talkflow.registry.store.SHERPA_NEMOTRON_MODEL_DIR (download per that
-module's docstring / CLAUDE.md if missing).
+module's docstring if missing).
 """
 from __future__ import annotations
 

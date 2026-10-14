@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from talkflow.history.db import connect
 
-# Per the official Dictionary behavior (EVIDENCE_LEDGER.md), these categories
+# Per the official Dictionary behavior (Wispr's public help-center docs), these categories
 # of corrections are explicitly NOT auto-learned: filenames/paths, URLs/domains,
 # partial emails, code symbols, everyday words/names/acronyms. Callers of
 # auto-learn should filter before calling add_entry with source="learned".

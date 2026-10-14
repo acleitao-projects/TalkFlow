@@ -17,6 +17,17 @@ import webview
 
 ICON_PATH = Path(__file__).resolve().parent / "assets" / "icon.ico"
 
+# Without an explicit AppUserModelID, Windows groups every window of this
+# process under python.exe/pythonw.exe and the taskbar button shows that
+# executable's generic icon - no matter what icon the window itself sets
+# (webview.start(icon=...) and WM_SETICON alone don't change it). Must run
+# before any window is created.
+try:
+    import ctypes
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("TalkFlow.App")
+except Exception:
+    pass
+
 from talkflow.asr.base import AsrAdapter
 from talkflow.asr.nemotron_sherpa_adapter import NemotronSherpaAdapter
 from talkflow.asr.whisper_http_adapter import WhisperHttpAdapter, ensure_model_downloaded
@@ -38,6 +49,7 @@ from talkflow.pipeline.orchestrator import Orchestrator
 from talkflow.registry import secrets as secret_store
 from talkflow.registry import store as registry_store
 from talkflow.tray.tray_icon import TrayIcon
+from talkflow import single_instance
 
 # Launched via pythonw.exe (startup shortcut, no console - see
 # scripts/launch_talkflow.vbs), the console-only logging below goes nowhere:
@@ -131,6 +143,10 @@ def build_orchestrator(overlay: OverlayWindow, llm: OpenAiCompatibleAdapter, ins
 
 
 def main() -> None:
+    if not single_instance.acquire():
+        logger.info("TalkFlow is already running; asked it to show its window, exiting")
+        return
+
     init_db()
     registry_store.ensure_defaults()
     settings = Settings.load()
@@ -233,6 +249,20 @@ def main() -> None:
     overlay.on_cancel = on_overlay_cancel
     overlay.on_confirm = on_overlay_confirm
 
+    # Mic button on the hover pill: start a hands-free dictation (stopped by
+    # the pill's check/X buttons, or the dictate hotkey).
+    def on_overlay_mic() -> None:
+        if hotkey.active or busy["processing"]:
+            return
+        hotkey.mark_active()
+        try:
+            get_orchestrator().start(trigger_mode="toggle")
+        except Exception:
+            logger.exception("Failed to start dictation from the overlay")
+            hotkey.reset()
+
+    overlay.on_mic_click = on_overlay_mic
+
     hotkey = HotkeyController(
         hotkey_spec=settings.hotkey, mode=settings.trigger_mode,
         on_start=on_hotkey_start, on_stop=on_hotkey_stop, on_cancel=on_dictation_cancel,
@@ -325,7 +355,7 @@ def main() -> None:
         webview.windows[:] and [w.destroy() for w in list(webview.windows)]
 
     # Notetaker: toggled from the tray menu (continuous background recording,
-    # not a quick hotkey tap). Least-proven feature per CLAUDE.md Risk 5 -
+    # not a quick hotkey tap). Least-proven feature per the design notes' Risk 5 -
     # loopback capture was spiked and confirmed working, but this is the
     # newest/least-tested capture path end-to-end.
     meeting_state: dict = {"recorder": None}
@@ -351,6 +381,9 @@ def main() -> None:
                 except Exception:
                     logger.exception("Meeting processing failed")
             threading.Thread(target=_process, daemon=True).start()
+        overlay.set_meeting_active(meeting_state["recorder"] is not None)
+
+    overlay.on_record_click = toggle_meeting
 
     tray = TrayIcon(
         on_open_main=open_main_window, on_quit=quit_app,
@@ -358,6 +391,7 @@ def main() -> None:
         meeting_active=lambda: meeting_state["recorder"] is not None,
     )
     tray.run_in_background()
+    single_instance.listen_for_show_requests(main_window.bring_to_front)
 
     logger.info("TalkFlow running. Hotkey=%s mode=%s", settings.hotkey, settings.trigger_mode)
     webview.start(icon=str(ICON_PATH) if ICON_PATH.exists() else None)

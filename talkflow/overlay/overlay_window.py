@@ -133,7 +133,10 @@ class OverlayWindow:
         self.on_cancel: Callable[[], None] | None = None
         self.on_confirm: Callable[[], None] | None = None
         self.on_notes_click: Callable[[], None] | None = None
+        self.on_mic_click: Callable[[], None] | None = None
+        self.on_record_click: Callable[[], None] | None = None
         self._flow_bar_enabled = False
+        self._meeting_active = False
 
     # ---- lifecycle -------------------------------------------------------
 
@@ -216,7 +219,9 @@ class OverlayWindow:
                 y = win32api.HIWORD(lparam) / self._scale
                 for name, (x0, y0, x1, y1) in self._buttons.items():
                     if x0 <= x <= x1 and y0 <= y <= y1:
-                        cb = {"cancel": self.on_cancel, "notes": self.on_notes_click}.get(name, self.on_confirm)
+                        cb = {"cancel": self.on_cancel, "confirm": self.on_confirm,
+                              "notes": self.on_notes_click, "mic": self.on_mic_click,
+                              "record": self.on_record_click}.get(name)
                         if cb:
                             threading.Thread(target=cb, daemon=True).start()
                         break
@@ -356,7 +361,10 @@ class OverlayWindow:
             pill(px0, 38, px0 + 76, 70, solid, edge)
             mic(px0 + 24, 54, white, 0.9)
             circle(px0 + 52, 54, 10, outline=(255, 255, 255, 190), width=round(2 * u))
-            circle(px0 + 52, 54, 4, fill=white)
+            # Record-meeting dot: red while a meeting recording is running.
+            circle(px0 + 52, 54, 4, fill=(239, 68, 68, 255) if self._meeting_active else white)
+            self._buttons["mic"] = (px0, 38, px0 + 38, 70)
+            self._buttons["record"] = (px0 + 38, 38, px0 + 76, 70)
             # Notes icon sits in the existing right margin next to the mic
             # pill - no canvas resize needed (cw already has room), which
             # keeps the window's real hit-test bounds identical to what's
@@ -419,6 +427,10 @@ class OverlayWindow:
 
     def set_flow_bar_enabled(self, enabled: bool) -> None:
         self._flow_bar_enabled = enabled
+        self._poke()
+
+    def set_meeting_active(self, active: bool) -> None:
+        self._meeting_active = active
         self._poke()
 
     def set_hotkey_hint(self, text: str) -> None:

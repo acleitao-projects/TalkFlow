@@ -1,7 +1,7 @@
 """Single sqlite database for all of TalkFlow's local state: dictation
 history, formality presets, per-app preset assignments, dictionary entries,
 snippets, and the model/provider registry. No ORM - the schema is small and
-stable (see CLAUDE.md's Risks section for why this was kept minimal).
+stable (see the project's design notes' Risks section for why this was kept minimal).
 """
 from __future__ import annotations
 
