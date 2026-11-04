@@ -132,8 +132,10 @@ class OverlayWindow:
         self.on_notes_click: Callable[[], None] | None = None
         self.on_mic_click: Callable[[], None] | None = None
         self.on_record_click: Callable[[], None] | None = None
+        self.on_live_assist_click: Callable[[], None] | None = None
         self._flow_bar_enabled = False
         self._meeting_active = False
+        self._live_assist_active = False
         self._owner_hwnd = 0
         self._capture_affinity = "unsupported"
         self._panic_hidden = False
@@ -225,7 +227,8 @@ class OverlayWindow:
                     if x0 <= x <= x1 and y0 <= y <= y1:
                         cb = {"cancel": self.on_cancel, "confirm": self.on_confirm,
                               "notes": self.on_notes_click, "mic": self.on_mic_click,
-                              "record": self.on_record_click}.get(name)
+                              "record": self.on_record_click,
+                              "live_assist": self.on_live_assist_click}.get(name)
                         if cb:
                             threading.Thread(target=cb, daemon=True).start()
                         break
@@ -288,6 +291,12 @@ class OverlayWindow:
             self._mode = mode
             lay = _LAYOUT[mode]
             cw, ch = lay["canvas"]
+            if mode == "hover" and self._flow_bar_enabled:
+                # The notes button and the Live Assist button both fit in the
+                # base width on their own, but not at the same time - widen
+                # only in the one case that actually needs it, instead of
+                # always reserving dead space nobody's hovering over.
+                cw += 50
             s = self._scale
             pw, ph = round(cw * s), round(ch * s)
             img = self._draw(mode, cw, ch, s)
@@ -399,12 +408,22 @@ class OverlayWindow:
             # keeps the window's real hit-test bounds identical to what's
             # drawn (a previous version resized the canvas for this and the
             # icon ended up not reliably clickable).
+            nx0 = px0 + 76 + 6
+            la_x0 = nx0
             if self._flow_bar_enabled:
-                nx0 = px0 + 76 + 6
                 if nx0 + 30 <= cw - 4:
                     pill(nx0, 40, nx0 + 30, 68, solid, edge)
                     notes_icon(nx0 + 15, 54, white)
                     self._buttons["notes"] = (nx0, 40, nx0 + 30, 68)
+                    la_x0 = nx0 + 30 + 6
+            # Live Assist session toggle: same visual language as the
+            # meeting-record dot above (outline ring + colored center dot),
+            # but violet instead of red so it reads as a distinct control.
+            if la_x0 + 30 <= cw - 4:
+                pill(la_x0, 40, la_x0 + 30, 68, solid, edge)
+                circle(la_x0 + 15, 54, 10, outline=(255, 255, 255, 190), width=round(2 * u))
+                circle(la_x0 + 15, 54, 4, fill=(167, 139, 250, 255) if self._live_assist_active else white)
+                self._buttons["live_assist"] = (la_x0, 40, la_x0 + 30, 68)
         elif mode == "recording":
             pill(0, 0, cw, ch, solid, edge)
             cy = ch / 2
@@ -494,6 +513,10 @@ class OverlayWindow:
 
     def set_meeting_active(self, active: bool) -> None:
         self._meeting_active = active
+        self._poke()
+
+    def set_live_assist_active(self, active: bool) -> None:
+        self._live_assist_active = active
         self._poke()
 
     def set_hotkey_hint(self, text: str) -> None:

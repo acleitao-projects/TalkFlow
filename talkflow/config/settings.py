@@ -34,6 +34,7 @@ class Settings:
     transform_prompt_engineer_hotkey: str = "<ctrl>+<shift>+e"
     command_mode_hotkey: str = "<ctrl>+<shift>+m"
     panic_hide_hotkey: str = "<ctrl>+<shift>+h"
+    live_assist_hotkey: str = "<ctrl>+<shift>+l"
     language_allowlist: list[str] = field(default_factory=lambda: ["en"])
     # How aggressively the cleanup stage edits the transcript, independent of
     # the per-app/category formality register: "none" skips the LLM call

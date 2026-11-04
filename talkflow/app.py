@@ -35,6 +35,8 @@ from talkflow.capture.hotkey import HotkeyController
 from talkflow.config.paths import log_dir
 from talkflow.config.settings import Settings
 from talkflow.features.command_mode.engine import CommandModeEngine
+from talkflow.features.liveassist.orchestrator import LiveAssistOrchestrator
+from talkflow.features.liveassist.session import LiveAssistState
 from talkflow.features.notetaker.capture import MeetingRecorder
 from talkflow.features.notetaker.pipeline import process_meeting
 from talkflow.features.transforms.engine import TransformsEngine
@@ -363,6 +365,7 @@ def main() -> None:
             ctrl.stop()
         command_hotkey.stop()
         panic_hide_hotkey.stop()
+        live_assist_hotkey.stop()
         webview.windows[:] and [w.destroy() for w in list(webview.windows)]
 
     # Notetaker: toggled from the tray menu (continuous background recording,
@@ -395,6 +398,34 @@ def main() -> None:
         overlay.set_meeting_active(meeting_state["recorder"] is not None)
 
     overlay.on_record_click = toggle_meeting
+
+    # Live Assist: LA-03 skeleton, no real capture/ASR/suggestions yet (those
+    # are LA-04/LA-05/LA-09). Controlled from the pill - the only overlay
+    # surface this app has - not a tray entry, mirroring how the meeting
+    # toggle above is wired.
+    live_assist_state: dict = {"orchestrator": None}
+
+    def on_live_assist_state_change(session) -> None:
+        overlay.set_live_assist_active(session.state in (
+            LiveAssistState.ARMING, LiveAssistState.ACTIVE, LiveAssistState.PAUSED))
+
+    def toggle_live_assist() -> None:
+        orch = live_assist_state["orchestrator"]
+        if orch is None:
+            orch = LiveAssistOrchestrator(on_state_change=on_live_assist_state_change)
+            live_assist_state["orchestrator"] = orch
+        if orch.state in (None, LiveAssistState.ENDED, LiveAssistState.ERROR):
+            orch.start()
+        else:
+            orch.stop()
+
+    overlay.on_live_assist_click = toggle_live_assist
+
+    live_assist_hotkey = HotkeyController(
+        hotkey_spec=settings.live_assist_hotkey, mode="toggle",
+        on_start=toggle_live_assist, on_stop=lambda: None,
+    )
+    live_assist_hotkey.start()
 
     tray = TrayIcon(
         on_open_main=open_main_window, on_quit=quit_app,

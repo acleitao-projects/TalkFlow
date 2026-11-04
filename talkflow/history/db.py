@@ -114,6 +114,57 @@ CREATE TABLE IF NOT EXISTS notetaker_sessions (
     action_items_json TEXT,
     my_thoughts TEXT
 );
+
+CREATE TABLE IF NOT EXISTS live_assist_sessions (
+    id TEXT PRIMARY KEY,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    state TEXT NOT NULL,
+    assistant_id TEXT,
+    language TEXT,
+    goal TEXT
+);
+
+CREATE TABLE IF NOT EXISTS live_assist_utterances (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES live_assist_sessions(id),
+    source TEXT NOT NULL CHECK (source IN ('me','they')),
+    sequence INTEGER NOT NULL,
+    captured_at TEXT NOT NULL,
+    text TEXT NOT NULL,
+    is_final INTEGER NOT NULL DEFAULT 0,
+    revision INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_live_assist_utterances_session
+    ON live_assist_utterances(session_id, captured_at, sequence);
+
+CREATE TABLE IF NOT EXISTS live_assist_suggestions (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES live_assist_sessions(id),
+    trigger TEXT NOT NULL,
+    text TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    disposition TEXT
+);
+
+CREATE TABLE IF NOT EXISTS live_assist_assistants (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    task TEXT NOT NULL,
+    response_style TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_builtin INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS live_assist_captures (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES live_assist_sessions(id),
+    created_at TEXT NOT NULL,
+    question TEXT,
+    answer TEXT
+);
 """
 
 _BUILTIN_PRESETS = [
@@ -211,6 +262,20 @@ def init_db(path: Path | None = None) -> None:
                     "VALUES (?, ?, ?, ?, ?, 1)",
                     (str(uuid.uuid4()), trigger, expansion, now, now),
                 )
+
+        # Seeded ONLY when live_assist_assistants is completely empty (first
+        # run) - not on every init - same guard as _BUILTIN_SNIPPETS above, so
+        # a user-deleted builtin doesn't silently reappear on next launch.
+        (assistant_count,) = conn.execute("SELECT COUNT(*) FROM live_assist_assistants").fetchone()
+        if assistant_count == 0:
+            now = datetime.now(timezone.utc).isoformat()
+            conn.execute(
+                "INSERT INTO live_assist_assistants "
+                "(id, name, task, response_style, created_at, updated_at, is_builtin) "
+                "VALUES (?, ?, ?, ?, ?, ?, 1)",
+                (str(uuid.uuid4()), "General Assistant",
+                 "Help with whatever this conversation needs.", "neutral, concise", now, now),
+            )
 
         conn.commit()
 
