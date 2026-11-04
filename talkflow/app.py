@@ -35,6 +35,7 @@ from talkflow.capture.hotkey import HotkeyController
 from talkflow.config.paths import log_dir
 from talkflow.config.settings import Settings
 from talkflow.features.command_mode.engine import CommandModeEngine
+from talkflow.features.liveassist.multi_stream_asr import MultiStreamAsrAdapter
 from talkflow.features.liveassist.orchestrator import LiveAssistOrchestrator
 from talkflow.features.liveassist.session import LiveAssistState
 from talkflow.features.notetaker.capture import MeetingRecorder
@@ -399,20 +400,41 @@ def main() -> None:
 
     overlay.on_record_click = toggle_meeting
 
-    # Live Assist: LA-03 skeleton, no real capture/ASR/suggestions yet (those
-    # are LA-04/LA-05/LA-09). Controlled from the pill - the only overlay
-    # surface this app has - not a tray entry, mirroring how the meeting
-    # toggle above is wired.
-    live_assist_state: dict = {"orchestrator": None}
+    # Live Assist: LA-04/LA-05 - real two-source capture (mic "me" / system-
+    # output loopback "they") and multi-stream ASR now sit behind the LA-03
+    # session skeleton. Controlled from the pill - the only overlay surface
+    # this app has - not a tray entry, mirroring how the meeting toggle
+    # above is wired.
+    live_assist_state: dict = {"orchestrator": None, "asr": None}
+
+    def get_live_assist_asr() -> MultiStreamAsrAdapter:
+        if live_assist_state["asr"] is None:
+            asr_assignment = registry_store.get_active("asr")
+            if asr_assignment is None or asr_assignment.provider != "nemotron-local":
+                raise RuntimeError(
+                    "Live Assist currently requires the nemotron-local ASR provider active "
+                    "in the Model Registry (multi-stream support isn't built for other providers yet)")
+            live_assist_state["asr"] = MultiStreamAsrAdapter(model_dir=asr_assignment.base_url)
+        return live_assist_state["asr"]
 
     def on_live_assist_state_change(session) -> None:
         overlay.set_live_assist_active(session.state in (
             LiveAssistState.ARMING, LiveAssistState.ACTIVE, LiveAssistState.PAUSED))
 
+    def on_live_assist_utterance(source_id: str, text: str, is_final: bool) -> None:
+        logger.info("live assist utterance: source=%s final=%s text=%r", source_id, is_final, text)
+
     def toggle_live_assist() -> None:
         orch = live_assist_state["orchestrator"]
         if orch is None:
-            orch = LiveAssistOrchestrator(on_state_change=on_live_assist_state_change)
+            try:
+                orch = LiveAssistOrchestrator(
+                    asr=get_live_assist_asr(), allowed_languages=settings.language_allowlist,
+                    on_state_change=on_live_assist_state_change, on_utterance=on_live_assist_utterance,
+                )
+            except Exception:
+                logger.exception("Could not start Live Assist")
+                return
             live_assist_state["orchestrator"] = orch
         if orch.state in (None, LiveAssistState.ENDED, LiveAssistState.ERROR):
             orch.start()
