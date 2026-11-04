@@ -107,14 +107,11 @@ _user32.UpdateLayeredWindow.argtypes = [
 _user32.TrackMouseEvent.argtypes = [ctypes.POINTER(_TRACKMOUSEEVENT)]
 _user32.SetWindowPos.argtypes = [ctypes.c_void_p, ctypes.c_void_p] + [ctypes.c_int] * 4 + [wintypes.UINT]
 _user32.GetDpiForWindow.argtypes = [ctypes.c_void_p]
+_user32.SetWindowDisplayAffinity.argtypes = [ctypes.c_void_p, wintypes.DWORD]
+_user32.SetWindowDisplayAffinity.restype = wintypes.BOOL
 
-
-def _work_area() -> tuple[int, int, int, int]:
-    try:
-        info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
-        return tuple(info["Work"])  # type: ignore[return-value]
-    except Exception:
-        return (0, 0, 1920, 1040)
+WDA_MONITOR = 0x00000001
+WDA_EXCLUDEFROMCAPTURE = 0x00000011  # Windows 10 2004+ (build 19041+)
 
 
 class OverlayWindow:
@@ -137,6 +134,11 @@ class OverlayWindow:
         self.on_record_click: Callable[[], None] | None = None
         self._flow_bar_enabled = False
         self._meeting_active = False
+        self._owner_hwnd = 0
+        self._capture_affinity = "unsupported"
+        self._panic_hidden = False
+        self._last_work_area: tuple[int, int, int, int] | None = None
+        self._focus_debounce_until = 0.0
 
     # ---- lifecycle -------------------------------------------------------
 
@@ -176,6 +178,7 @@ class OverlayWindow:
             0, owner_class, "TalkFlowOverlayOwner", win32con.WS_POPUP,
             0, 0, 0, 0, 0, 0, wc.hInstance, None,
         )
+        self._owner_hwnd = owner_hwnd
 
         ex = (win32con.WS_EX_LAYERED | win32con.WS_EX_TOPMOST |
               win32con.WS_EX_TOOLWINDOW | win32con.WS_EX_NOACTIVATE)
@@ -183,6 +186,7 @@ class OverlayWindow:
             ex, WINDOW_CLASS, "TalkFlowOverlay", win32con.WS_POPUP,
             0, 0, 10, 10, owner_hwnd, 0, wc.hInstance, None,
         )
+        self.exclude_from_capture()
         try:
             self._scale = _user32.GetDpiForWindow(self._hwnd) / 96.0
         except Exception:
@@ -232,6 +236,8 @@ class OverlayWindow:
             if msg == win32con.WM_TIMER:
                 if self._mode in ("recording", "busy"):
                     self._render()
+                else:
+                    self._check_monitor_change()
                 return 0
             if msg == win32con.WM_DESTROY:
                 win32gui.PostQuitMessage(0)
@@ -241,6 +247,29 @@ class OverlayWindow:
         return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
 
     # ---- rendering -------------------------------------------------------
+
+    def _work_area(self) -> tuple[int, int, int, int]:
+        try:
+            fg = win32gui.GetForegroundWindow()
+            if not fg or fg in (self._hwnd, self._owner_hwnd):
+                hwnd = self._hwnd or win32gui.GetDesktopWindow()
+            else:
+                hwnd = fg
+            info = win32api.GetMonitorInfo(
+                win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST))
+            return tuple(info["Work"])  # type: ignore[return-value]
+        except Exception:
+            return (0, 0, 1920, 1040)
+
+    def _check_monitor_change(self) -> None:
+        now = time.monotonic()
+        if now < self._focus_debounce_until:
+            return  # absorb rapid alt-tab churn
+        wa = self._work_area()
+        if wa != self._last_work_area:
+            self._last_work_area = wa
+            self._focus_debounce_until = now + 0.15
+            self._render()
 
     def _current_mode(self) -> str:
         if self._state == "recording":
@@ -270,7 +299,7 @@ class OverlayWindow:
         r, g, b, a = Image.frombytes("RGBA", pm.size, pm.tobytes()).split()
         data = Image.merge("RGBA", (b, g, r, a)).tobytes()  # BGRA
 
-        left, _top, right, bottom = _work_area()
+        left, _top, right, bottom = self._work_area()
         x = (left + right) // 2 - pw // 2
         y = bottom - round(BOTTOM_MARGIN * s) - (ph - round(pad_bottom * s))
 
@@ -420,6 +449,40 @@ class OverlayWindow:
     def hide(self) -> None:
         if self._hwnd:
             win32gui.ShowWindow(self._hwnd, win32con.SW_HIDE)
+
+    def exclude_from_capture(self) -> str:
+        """Tries WDA_EXCLUDEFROMCAPTURE (true exclusion, Win10 2004+); falls
+        back to WDA_MONITOR (blacks the window out in capture instead of
+        excluding it) on older builds. Returns "excluded" | "blacked_out" |
+        "unsupported" so the actual result can be recorded per machine
+        instead of assumed."""
+        if not self._hwnd:
+            return "unsupported"
+        if _user32.SetWindowDisplayAffinity(ctypes.c_void_p(self._hwnd), WDA_EXCLUDEFROMCAPTURE):
+            self._capture_affinity = "excluded"
+            return "excluded"
+        logger.warning("WDA_EXCLUDEFROMCAPTURE unavailable; falling back to WDA_MONITOR")
+        if _user32.SetWindowDisplayAffinity(ctypes.c_void_p(self._hwnd), WDA_MONITOR):
+            self._capture_affinity = "blacked_out"
+            return "blacked_out"
+        logger.warning("SetWindowDisplayAffinity unsupported; overlay will be visible in captures")
+        self._capture_affinity = "unsupported"
+        return "unsupported"
+
+    def toggle_panic_hide(self) -> bool:
+        """Hides/shows the pill unconditionally, independent of mode/state
+        and of exclude_from_capture()'s result. Returns the new hidden
+        state."""
+        self._panic_hidden = not self._panic_hidden
+        (self.hide if self._panic_hidden else self.show)()
+        return self._panic_hidden
+
+    def clear_panic_hide(self) -> None:
+        """Call when a new dictation starts, so panic-hide doesn't silently
+        swallow the next dictation's visual feedback."""
+        if self._panic_hidden:
+            self._panic_hidden = False
+            self.show()
 
     def set_state(self, state: str) -> None:
         self._state = state

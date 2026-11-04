@@ -864,6 +864,10 @@
           <div><div class="hotkey-row-label" data-i18n="settings.dictate_label">Dictate</div><div class="hotkey-row-sub" id="s-trigger-mode-label"></div></div>
           <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-dictate"></span><button class="btn btn-secondary" onclick="changeMainHotkey('hotkey','th-dictate')" data-i18n="btn.change">Change</button></div>
         </div>
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label" data-i18n="settings.panic_hide_label">Panic-hide</div><div class="hotkey-row-sub" data-i18n="settings.panic_hide_sub">Instantly hide the pill, independent of capture-exclusion</div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-panic"></span><button class="btn btn-secondary" onclick="changeMainHotkey('panic_hide_hotkey','th-panic')" data-i18n="btn.change">Change</button></div>
+        </div>
       </div>
 
       <h2 class="text-[15px] font-semibold mb-3" data-i18n="settings.general_title">General</h2>
@@ -1060,6 +1064,8 @@ const TRANSLATIONS = {
     'registry.no_entries': 'No entries yet.',
     'settings.shortcuts_title': 'Shortcuts',
     'settings.dictate_label': 'Dictate',
+    'settings.panic_hide_label': 'Panic-hide',
+    'settings.panic_hide_sub': 'Instantly hide the pill, independent of capture-exclusion',
     'settings.general_title': 'General',
     'settings.trigger_mode_label': 'Trigger mode',
     'settings.languages_label': 'Dictation languages',
@@ -1228,6 +1234,8 @@ const TRANSLATIONS = {
     'registry.no_entries': 'Nenhuma entrada ainda.',
     'settings.shortcuts_title': 'Atalhos',
     'settings.dictate_label': 'Ditar',
+    'settings.panic_hide_label': 'Ocultar imediatamente',
+    'settings.panic_hide_sub': 'Oculta a pílula instantaneamente, independente da exclusão de captura',
     'settings.general_title': 'Geral',
     'settings.trigger_mode_label': 'Modo de ativação',
     'settings.languages_label': 'Idiomas de ditado',
@@ -1658,6 +1666,7 @@ async function loadMainHotkeyChips() {
   if ($('th-polish')) $('th-polish').textContent = formatHotkeySpec(s.transform_polish_hotkey);
   if ($('th-pe')) $('th-pe').textContent = formatHotkeySpec(s.transform_prompt_engineer_hotkey);
   if ($('th-cmd')) $('th-cmd').textContent = formatHotkeySpec(s.command_mode_hotkey);
+  if ($('th-panic')) $('th-panic').textContent = formatHotkeySpec(s.panic_hide_hotkey);
 }
 
 async function loadHistory(query) {
@@ -2376,6 +2385,7 @@ async function loadSettings() {
   $('s-trigger-mode').value = s.trigger_mode;
   $('s-trigger-mode-label').textContent = s.trigger_mode === 'hold' ? t('mode.hold.label') : t('mode.toggle.sub');
   $('th-dictate').textContent = formatHotkeySpec(s.hotkey);
+  $('th-panic').textContent = formatHotkeySpec(s.panic_hide_hotkey);
   $('s-languages').value = s.language_allowlist.join(', ');
   $('s-retain-history').checked = s.retain_history;
   $('s-partial-paste').checked = s.partial_paste;

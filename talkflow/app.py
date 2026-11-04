@@ -213,6 +213,7 @@ def main() -> None:
             # Still transcribing/inserting the previous dictation.
             hotkey.reset()
             return
+        overlay.clear_panic_hide()
         try:
             get_orchestrator().start(trigger_mode=settings.trigger_mode)
         except Exception:
@@ -342,6 +343,15 @@ def main() -> None:
     )
     command_hotkey.start()
 
+    # Panic-hide: an always-reliable fallback to exclude_from_capture(),
+    # since SetWindowDisplayAffinity isn't guaranteed on every OS build/
+    # capture method. Toggle mode: one tap hides, another tap shows again.
+    panic_hide_hotkey = HotkeyController(
+        hotkey_spec=settings.panic_hide_hotkey, mode="toggle",
+        on_start=lambda: overlay.toggle_panic_hide(), on_stop=lambda: None,
+    )
+    panic_hide_hotkey.start()
+
     def open_main_window() -> None:
         main_window.show()
 
@@ -352,6 +362,7 @@ def main() -> None:
         for ctrl in custom_transform_hotkeys:
             ctrl.stop()
         command_hotkey.stop()
+        panic_hide_hotkey.stop()
         webview.windows[:] and [w.destroy() for w in list(webview.windows)]
 
     # Notetaker: toggled from the tray menu (continuous background recording,

@@ -49,6 +49,33 @@ def _apply_native_window_icon(window_title: str, icon_path: Path) -> bool:
         return False
 
 
+def _exclude_main_window_from_capture(window_title: str) -> bool:
+    """Keeps the main window fully visible locally but invisible in screen
+    shares/recordings/screenshot-capture tools - same requirement as the
+    dictation pill (see overlay_window.py's exclude_from_capture()). Tries
+    WDA_EXCLUDEFROMCAPTURE (true exclusion, Windows 10 2004+); falls back to
+    WDA_MONITOR (blacks the window out in capture instead) on older builds.
+    Returns True once either succeeds, so the caller can stop retrying."""
+    try:
+        import ctypes
+        import win32gui
+
+        hwnd = win32gui.FindWindow(None, window_title)
+        if not hwnd:
+            return False
+
+        WDA_MONITOR = 0x00000001
+        WDA_EXCLUDEFROMCAPTURE = 0x00000011
+        user32 = ctypes.windll.user32
+        if user32.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE):
+            return True
+        logger.warning("WDA_EXCLUDEFROMCAPTURE unavailable for main window; falling back to WDA_MONITOR")
+        return bool(user32.SetWindowDisplayAffinity(hwnd, WDA_MONITOR))
+    except Exception:
+        logger.exception("Could not exclude the main window from screen capture")
+        return False
+
+
 def _work_area() -> tuple[int, int, int, int]:
     """Primary monitor's work area (left, top, right, bottom), i.e. the
     screen minus the taskbar. Same helper/fallback as overlay_window.py's -
@@ -73,6 +100,7 @@ class MainWindow:
         self._is_maximized = False
         self._pre_maximize_geometry: tuple[int, int, int, int] | None = None  # x, y, w, h
         self._native_icon_applied = False
+        self._capture_excluded = False
 
     def create(self) -> webview.Window:
         self._window = webview.create_window(
@@ -98,6 +126,8 @@ class MainWindow:
             self._window.show()
             if not self._native_icon_applied:
                 self._native_icon_applied = _apply_native_window_icon("TalkFlow", _ICON_PATH)
+            if not self._capture_excluded:
+                self._capture_excluded = _exclude_main_window_from_capture("TalkFlow")
 
     def bring_to_front(self) -> None:
         """show(), plus un-minimize and raise - for a second launch of the
