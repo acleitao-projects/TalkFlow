@@ -37,8 +37,10 @@ from talkflow.config.settings import Settings
 from talkflow.features.command_mode.engine import CommandModeEngine
 from talkflow.features.liveassist import assistants as liveassist_assistants
 from talkflow.features.liveassist.batch_asr import TwoSourceBatchAsrAdapter
+from talkflow.features.liveassist.deepgram_asr import TwoSourceDeepgramAsrAdapter
 from talkflow.features.liveassist.multi_stream_asr import MultiStreamAsrAdapter
 from talkflow.features.liveassist.realtime_asr import TwoSourceRealtimeAsrAdapter
+from talkflow.features.liveassist.whisperlivekit_asr import TwoSourceWhisperLiveKitAdapter
 from talkflow.features.liveassist.orchestrator import LiveAssistOrchestrator
 from talkflow.features.liveassist.session import LiveAssistState
 from talkflow.features.liveassist.suggestion_engine import SuggestionEngine
@@ -512,6 +514,28 @@ def main() -> None:
             return TwoSourceRealtimeAsrAdapter(
                 api_key=asr_api_key, model=asr_assignment.model_id or "gpt-live-transcribe",
             )
+        if asr_assignment.provider == "deepgram":
+            # True streaming via Deepgram's Nova-3 WebSocket API - see
+            # deepgram_asr.py's docstring for why this was added: roughly
+            # half OpenAI Realtime's per-minute cost, confirmed sub-300ms
+            # latency, and no silence billing (same noise-gate benefit).
+            asr_api_key = (secret_store.get_api_key(asr_assignment.api_key_ref)
+                           if asr_assignment.api_key_ref else None)
+            if not asr_api_key:
+                raise RuntimeError("live_assist_asr provider is deepgram but no API key is stored")
+            return TwoSourceDeepgramAsrAdapter(
+                api_key=asr_api_key, model=asr_assignment.model_id or "nova-3",
+            )
+        if asr_assignment.provider == "whisperlivekit":
+            # Self-hosted faster-whisper streaming server on the LAN (LXC
+            # vmid 141, "whisper-live", 192.168.1.36) - see
+            # whisperlivekit_asr.py's docstring for why: Deepgram's real-world
+            # latency turned out far worse than documented (1.4-3s, confirmed
+            # via live timing logs), likely network/routing related. A LAN
+            # round trip removes that variable entirely, and the R730 this
+            # runs on has far more CPU headroom than this laptop. base_url is
+            # the server's http(s) origin, e.g. "http://192.168.1.36:8765".
+            return TwoSourceWhisperLiveKitAdapter(base_url=asr_assignment.base_url)
         # Any OpenAI-compatible batch transcription host (OpenAI's own API
         # included - base_url="https://api.openai.com", model_id="whisper-1"
         # or "gpt-4o-transcribe") works here via the same WhisperHttpAdapter

@@ -867,8 +867,12 @@
       <div id="asr-test-result" class="text-sm mb-6"></div>
 
       <h2 class="text-[15px] font-semibold mb-2" data-i18n="registry.live_assist_asr_title">Live Assist ASR &mdash; optional, overrides ASR above for Live Assist only</h2>
-      <p class="section-sub" data-i18n="registry.live_assist_asr_sub">Leave empty to use the ASR provider above. Two cloud options for Live Assist specifically, if local is too slow for two simultaneous streams: provider "openai-realtime" + model "gpt-live-transcribe" for true live streaming captions with a silence-aware noise gate (recommended - cheap, since dead air is never sent); or provider "openai" + model "whisper-1"/"gpt-4o-transcribe" for the simpler batch path (no live interim text, transcript arrives all at once per turn). base_url only matters for the batch path (e.g. "https://api.openai.com") - the realtime path ignores it.</p>
+      <p class="section-sub" data-i18n="registry.live_assist_asr_sub">Leave empty to use the ASR provider above - including local Nemotron, which Live Assist runs fully in-process (two concurrent sherpa-onnx streams off one loaded model, no network, no socket) via the button below. Recommended: provider "whisperlivekit" + base_url "http://192.168.1.36:8765" for a self-hosted faster-whisper streaming server on the LAN (R730, LXC 141) - free beyond electricity, LAN-only latency instead of a WAN round trip. provider "openai-realtime" + model "gpt-live-transcribe" is the proven cloud fallback. provider "deepgram" + model "nova-3" is also wired up but its real-world latency measured 1.4-3s in testing here despite documenting sub-300ms - likely network/routing specific to this connection, not necessarily true everywhere, but not recommended until re-verified. provider "openai" + model "whisper-1"/"gpt-4o-transcribe" is the simpler batch path (no live interim text). base_url only matters for the batch and whisperlivekit paths - the realtime/deepgram paths ignore it.</p>
       <div id="registry-live_assist_asr" class="card divide-y divide-[var(--border)] mb-3"></div>
+      <div class="mb-3">
+        <button onclick="useLocalNemotronForLiveAssist()" class="btn btn-secondary" data-i18n="registry.use_local_nemotron">Use local Nemotron (same model as Dictation)</button>
+        <div class="hotkey-row-sub mt-1" data-i18n="registry.use_local_nemotron_sub">Runs entirely on this machine, no API key or internet needed. Loads a second copy of the model in memory (Live Assist needs two concurrent streams, "me" + "they") alongside Dictation's own - watch VRAM if both run at once.</div>
+      </div>
       <div class="flex flex-wrap gap-2 mb-1">
         <input id="live_assist_asr-name" placeholder="name e.g. OpenAI Realtime" class="px-3 py-2 flex-1 min-w-[140px]" />
         <input id="live_assist_asr-provider" placeholder="provider e.g. openai-realtime" class="px-3 py-2 flex-1 min-w-[110px]" />
@@ -1137,7 +1141,9 @@ const TRANSLATIONS = {
     'note.empty': 'No meetings recorded yet.',
     'registry.asr_title': 'ASR &mdash; speech to text',
     'registry.live_assist_asr_title': 'Live Assist ASR &mdash; optional, overrides ASR above for Live Assist only',
-    'registry.live_assist_asr_sub': 'Leave empty to use the ASR provider above. Set this to use a faster cloud API (e.g. OpenAI: base_url "https://api.openai.com", model id "whisper-1" or "gpt-4o-transcribe", with your API key) for Live Assist specifically, if the local model is too slow for two simultaneous streams on your hardware. No live interim text with a cloud API - the transcript for each turn arrives all at once instead of word-by-word.',
+    'registry.live_assist_asr_sub': 'Leave empty to use the ASR provider above - including local Nemotron, which Live Assist runs fully in-process (two concurrent sherpa-onnx streams off one loaded model, no network, no socket) via the button below. Recommended: provider "whisperlivekit" + base_url "http://192.168.1.36:8765" for a self-hosted faster-whisper streaming server on the LAN - free beyond electricity, LAN-only latency instead of a WAN round trip. provider "openai-realtime" + model "gpt-live-transcribe" is the proven cloud fallback. provider "deepgram" + model "nova-3" is also wired up but measured 1.4-3s real-world latency in testing here despite documenting sub-300ms - not recommended until re-verified. provider "openai" + model "whisper-1"/"gpt-4o-transcribe" is the simpler batch path (no live interim text). base_url only matters for the batch and whisperlivekit paths.',
+    'registry.use_local_nemotron': 'Use local Nemotron (same model as Dictation)',
+    'registry.use_local_nemotron_sub': 'Runs entirely on this machine, no API key or internet needed. Loads a second copy of the model in memory (Live Assist needs two concurrent streams, "me" + "they") alongside Dictation\'s own - watch VRAM if both run at once.',
     'registry.cleanup_title': 'Cleanup &mdash; text to text, OpenAI-compatible (local or cloud)',
     'registry.test_save': 'Test &amp; Save',
     'registry.active': 'Active',
@@ -1331,7 +1337,9 @@ const TRANSLATIONS = {
     'note.empty': 'Nenhuma reunião registrada ainda.',
     'registry.asr_title': 'ASR &mdash; voz para texto',
     'registry.live_assist_asr_title': 'ASR do Live Assist &mdash; opcional, substitui o ASR acima só para o Live Assist',
-    'registry.live_assist_asr_sub': 'Deixe em branco para usar o provedor de ASR acima. Configure isto para usar uma API de nuvem mais rápida (ex: OpenAI: base_url "https://api.openai.com", model id "whisper-1" ou "gpt-4o-transcribe", com sua API key) só para o Live Assist, caso o modelo local esteja lento demais para dois streams simultâneos no seu hardware. Sem texto parcial em tempo real com uma API de nuvem - a transcrição de cada fala chega de uma vez, não palavra por palavra.',
+    'registry.live_assist_asr_sub': 'Deixe em branco para usar o provedor de ASR acima - incluindo o Nemotron local, que o Live Assist roda totalmente em processo (dois streams sherpa-onnx simultâneos a partir de um único modelo carregado, sem rede, sem socket) pelo botão abaixo. Recomendado: provider "whisperlivekit" + base_url "http://192.168.1.36:8765" para um servidor faster-whisper auto-hospedado na LAN - de graça além da eletricidade, latência só de LAN em vez de round trip pela internet. provider "openai-realtime" + model "gpt-live-transcribe" é o fallback de nuvem já comprovado. provider "deepgram" + model "nova-3" também está disponível mas mediu 1.4-3s de latência real nos testes aqui apesar de documentar abaixo de 300ms - não recomendado até ser reverificado. provider "openai" + model "whisper-1"/"gpt-4o-transcribe" é o caminho em lote mais simples (sem texto parcial em tempo real). base_url só importa para os caminhos em lote e whisperlivekit.',
+    'registry.use_local_nemotron': 'Usar Nemotron local (mesmo modelo da Dictation)',
+    'registry.use_local_nemotron_sub': 'Roda totalmente nesta máquina, sem API key ou internet. Carrega uma segunda cópia do modelo na memória (Live Assist precisa de dois streams simultâneos, "me" + "they") além da própria Dictation - atenção à VRAM se os dois rodarem juntos.',
     'registry.cleanup_title': 'Limpeza &mdash; texto para texto, compatível com OpenAI (local ou nuvem)',
     'registry.test_save': 'Testar e Salvar',
     'registry.active': 'Ativo',
@@ -2521,6 +2529,11 @@ async function deleteRegistry(stage, id) {
   loadRegistry();
 }
 
+async function useLocalNemotronForLiveAssist() {
+  await pywebview.api.use_local_nemotron_for_live_assist();
+  loadRegistry();
+}
+
 async function testAndSaveRegistry(stage) {
   const name = $(`${stage}-name`).value.trim();
   const provider = $(`${stage}-provider`).value.trim();
@@ -2531,7 +2544,7 @@ async function testAndSaveRegistry(stage) {
   // base_url isn't meaningful for the websocket-based "openai-realtime"
   // provider (realtime_asr.py hardcodes the wss:// endpoint) - don't block
   // saving it on an empty base_url field.
-  if (!name || !provider || !modelId || (!baseUrl && provider !== 'openai-realtime')) {
+  if (!name || !provider || !modelId || (!baseUrl && provider !== 'openai-realtime' && provider !== 'deepgram')) {
     resultEl.innerHTML = '<span style="color:var(--danger)">Fill in name, provider, base_url, and model id.</span>';
     return;
   }

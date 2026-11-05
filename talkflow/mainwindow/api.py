@@ -346,6 +346,9 @@ class Api:
             secret_store.set_api_key(a.api_key_ref, api_key)
         return {"id": new_id}
 
+    def use_local_nemotron_for_live_assist(self) -> dict:
+        return {"id": registry_store.use_local_nemotron_for_live_assist()}
+
     def activate_registry(self, stage: str, assignment_id: int) -> dict:
         registry_store.activate(stage, assignment_id)
         return {"ok": True}
@@ -370,6 +373,16 @@ class Api:
                     # with a bad key" principle as the REST path below.
                     from talkflow.features.liveassist.realtime_asr import TwoSourceRealtimeAsrAdapter
                     adapter = TwoSourceRealtimeAsrAdapter(api_key=api_key, model=model_id or "gpt-live-transcribe")
+                    adapter.start_source("test", ["en"])
+                    adapter.close()
+                elif provider == "deepgram":
+                    from talkflow.features.liveassist.deepgram_asr import TwoSourceDeepgramAsrAdapter
+                    adapter = TwoSourceDeepgramAsrAdapter(api_key=api_key, model=model_id or "nova-3")
+                    adapter.start_source("test", ["en"])
+                    adapter.close()
+                elif provider == "whisperlivekit":
+                    from talkflow.features.liveassist.whisperlivekit_asr import TwoSourceWhisperLiveKitAdapter
+                    adapter = TwoSourceWhisperLiveKitAdapter(base_url=base_url)
                     adapter.start_source("test", ["en"])
                     adapter.close()
                 else:

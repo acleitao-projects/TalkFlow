@@ -69,6 +69,31 @@ def activate(stage: str, assignment_id: int) -> None:
         conn.close()
 
 
+def use_local_nemotron_for_live_assist() -> int:
+    """Convenience for the Model Registry UI's "Use local Nemotron" button.
+    Live Assist's ASR is already fully local-model-capable without any
+    socket at all - talkflow/features/liveassist/multi_stream_asr.py runs
+    two concurrent sherpa-onnx streams (one per "me"/"they") off a single
+    in-process recognizer, same engine as plain dictation, nothing sent over
+    the network. The only real friction was that a user wanting "the same
+    local model Dictation already uses" had to find and retype its
+    sherpa-onnx model directory by hand into the live_assist_asr registry
+    form. This clones the active "asr" row's base_url/model_id when it's
+    already nemotron-local; otherwise falls back to the default model
+    directory so it still works even if dictation itself is pointed at a
+    different ASR provider."""
+    asr = get_active("asr")
+    if asr and asr.provider == "nemotron-local":
+        base_url, model_id = asr.base_url, asr.model_id
+    else:
+        base_url, model_id = SHERPA_NEMOTRON_MODEL_DIR, "nemotron-3.5-asr-streaming-0.6b"
+    return upsert(ModelAssignment(
+        id=None, stage="live_assist_asr", name="Local (sherpa-onnx, Nemotron 3.5 streaming)",
+        provider="nemotron-local", base_url=base_url, model_id=model_id,
+        api_key_ref=None, is_active=True,
+    ))
+
+
 def delete(assignment_id: int) -> None:
     conn = connect()
     try:
