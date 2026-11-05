@@ -9,8 +9,8 @@ import time
 
 import httpx
 
-from talkflow.llm.base import CleanupResult, LlmAdapter
-from talkflow.llm.prompts import build_messages, build_rewrite_messages
+from talkflow.llm.base import CleanupResult, LlmAdapter, SuggestionResult
+from talkflow.llm.prompts import NO_SUGGESTION_MARKER, build_messages, build_rewrite_messages, build_suggestion_messages
 
 
 class OpenAiCompatibleAdapter(LlmAdapter):
@@ -101,3 +101,30 @@ class OpenAiCompatibleAdapter(LlmAdapter):
 
         rewritten = body["choices"][0]["message"]["content"].strip()
         return CleanupResult(cleaned_text=rewritten, model_used=self.model_id, latency_ms=latency_ms)
+
+    def suggest(
+        self,
+        transcript_lines: list[tuple[str, str]],
+        assistant_name: str,
+        assistant_task: str,
+        assistant_style: str,
+        language: str,
+        custom_system_prompt: str | None = None,
+    ) -> SuggestionResult:
+        messages = build_suggestion_messages(
+            transcript_lines, assistant_name, assistant_task, assistant_style, language, custom_system_prompt)
+        start = time.monotonic()
+        # Explicit, generous max_tokens: some OpenAI-compatible hosts (e.g.
+        # Ollama's compat layer) default to a short response length (num_predict)
+        # when the field is omitted, which silently truncated real answers -
+        # confirmed live as one of two causes behind "answers get cut off"
+        # (the other being the overlay's own fixed-height suggestion strip).
+        body = self._post_chat({"model": self.model_id, "messages": messages, "temperature": 0.4, "max_tokens": 700})
+        latency_ms = (time.monotonic() - start) * 1000
+
+        text = body["choices"][0]["message"]["content"].strip()
+        if text == NO_SUGGESTION_MARKER or not text:
+            return SuggestionResult(suggestion_text="", has_suggestion=False,
+                                     model_used=self.model_id, latency_ms=latency_ms)
+        return SuggestionResult(suggestion_text=text, has_suggestion=True,
+                                 model_used=self.model_id, latency_ms=latency_ms)

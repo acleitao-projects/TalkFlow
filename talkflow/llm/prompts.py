@@ -50,6 +50,74 @@ def build_rewrite_messages(text: str, instruction: str) -> list[dict]:
     ]
 
 
+# LA-09: live suggestion engine. NO_SUGGESTION_MARKER is checked verbatim by
+# OpenAiCompatibleAdapter.suggest() against the model's full (stripped)
+# output - an explicit, parseable "nothing useful yet" signal, so a thin
+# conversation (or one where the user already said everything needed) comes
+# back as a real no-suggestion result instead of a fabricated, padded reply.
+NO_SUGGESTION_MARKER = "NO_SUGGESTION"
+
+SUGGEST_SYSTEM = """You are a live conversational assistant: "{assistant_name}". Your task: {assistant_task}
+Response style: {assistant_style}
+
+You are shown a live two-person conversation transcript - ME (the person you're helping) and THEY (the other \
+person). Draft the next thing ME could say or send, grounded ONLY in what was actually said in the transcript \
+below - never invent facts, numbers or commitments that weren't mentioned.
+
+Rules:
+- Write in language "{language}" - never translate or switch languages.
+- Output ONLY the suggested text ME could say/send next. No commentary, no quotes, no markdown, no "Here's a suggestion:" preamble.
+- If the transcript is too short, too unclear, or genuinely has nothing useful to suggest right now, output exactly: {no_suggestion_marker}
+"""
+
+SUGGEST_USER_TEMPLATE = """Transcript so far:
+{transcript_block}"""
+
+# Appended after a custom_system_prompt (a hand-written persona, e.g. a
+# ported Perssua ROLE/TASK/STYLE/EXAMPLES prompt) - that kind of prompt
+# describes WHO to be, not how this app's transcript is shaped or how to
+# signal "nothing to suggest", so those mechanics still need stating
+# explicitly regardless of which persona is active.
+CUSTOM_PROMPT_FOOTER = """
+
+You are in a live two-person conversation, shown as a transcript below - ME (you) and THEY (the other person). \
+Respond as ME, to THEY's most recent point, grounded ONLY in what was actually said in the transcript - never \
+invent facts, numbers or claims that weren't established there.
+
+Rules:
+- Write in language "{language}" - never translate or switch languages.
+- Output ONLY the response ME would say/send next. No commentary, no quotes, no markdown, no preamble.
+- If the transcript is too short, too unclear, or genuinely has nothing useful to respond to yet, output exactly: {no_suggestion_marker}
+"""
+
+
+def build_suggestion_messages(
+    transcript_lines: list[tuple[str, str]],
+    assistant_name: str,
+    assistant_task: str,
+    assistant_style: str,
+    language: str,
+    custom_system_prompt: str | None = None,
+) -> list[dict]:
+    if custom_system_prompt:
+        system = custom_system_prompt.strip() + CUSTOM_PROMPT_FOOTER.format(
+            language=language, no_suggestion_marker=NO_SUGGESTION_MARKER,
+        )
+    else:
+        system = SUGGEST_SYSTEM.format(
+            assistant_name=assistant_name, assistant_task=assistant_task, assistant_style=assistant_style,
+            language=language, no_suggestion_marker=NO_SUGGESTION_MARKER,
+        )
+    transcript_block = "\n".join(
+        f"{'ME' if source == 'me' else 'THEY'}: {text}" for source, text in transcript_lines
+    ) or "(nothing said yet)"
+    user = SUGGEST_USER_TEMPLATE.format(transcript_block=transcript_block)
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
 def build_messages(
     raw_transcript: str,
     language: str,

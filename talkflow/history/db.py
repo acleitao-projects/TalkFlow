@@ -155,7 +155,8 @@ CREATE TABLE IF NOT EXISTS live_assist_assistants (
     response_style TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    is_builtin INTEGER NOT NULL DEFAULT 0
+    is_builtin INTEGER NOT NULL DEFAULT 0,
+    custom_system_prompt TEXT
 );
 
 CREATE TABLE IF NOT EXISTS live_assist_captures (
@@ -218,6 +219,12 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
 # entry here rather than only in SCHEMA above.
 _COLUMN_MIGRATIONS = [
     ("snippets", "is_builtin", "INTEGER NOT NULL DEFAULT 0"),
+    # LA-09 follow-up: lets an assistant fully override the generic
+    # task/response_style template with a rich, hand-written system prompt
+    # (ROLE/TASK/STYLE/EXAMPLES-style) - needed to port the kind of detailed
+    # persona prompts the reference app Perssua supports, which a plain
+    # task+style pair can't express.
+    ("live_assist_assistants", "custom_system_prompt", "TEXT"),
 ]
 
 

@@ -35,6 +35,8 @@ class Settings:
     command_mode_hotkey: str = "<ctrl>+<shift>+m"
     panic_hide_hotkey: str = "<ctrl>+<shift>+h"
     live_assist_hotkey: str = "<ctrl>+<shift>+l"
+    live_assist_ask_hotkey: str = "<ctrl>+<shift>+k"  # LA-07: manual suggestion request
+    live_assist_capture_hotkey: str = "<ctrl>+<shift>+g"  # LA-07: screen capture + question
     language_allowlist: list[str] = field(default_factory=lambda: ["en"])
     # How aggressively the cleanup stage edits the transcript, independent of
     # the per-app/category formality register: "none" skips the LLM call
@@ -42,6 +44,23 @@ class Settings:
     # behavior) only removes disfluencies, "medium" also tightens wording.
     cleanup_level: Literal["none", "light", "medium"] = "light"
     input_device_id: str | None = None  # None = system default
+    # Live Assist's "they" (system-audio) source: None captures the whole
+    # default playback device via WASAPI loopback (original LA-04 behavior).
+    # Some audio interfaces (e.g. RodeCaster Pro II, confirmed live) mix the
+    # user's own mic into their USB monitor/return bus, so that loopback
+    # captures a copy of the user's own voice too - not acoustic bleed, a
+    # hardware routing quirk - showing up as near-duplicate "me"/"they"
+    # lines. Setting this to a specific process name (e.g. "zoom.exe")
+    # switches to per-process WASAPI capture (see capture.py), which only
+    # ever contains that one app's rendered audio.
+    live_assist_system_audio_process_name: str | None = None
+    # Explicit device overrides for Live Assist's two sources - set when the
+    # per-process capture above isn't the right tool (e.g. you want "they"
+    # to loopback a specific OUTPUT device, such as a RodeCaster's dedicated
+    # "Chat" bus, rather than one specific app's process). None keeps the
+    # existing default (default mic / default-speaker loopback).
+    live_assist_mic_device_name: str | None = None
+    live_assist_system_audio_device_name: str | None = None
     retain_history: bool = True
     retain_audio: bool = False  # transcripts are retained by default; raw audio is not
     launch_at_login: bool = False  # mirrors a Startup-folder shortcut - see talkflow/config/autostart.py
@@ -63,6 +82,17 @@ class Settings:
     scratchpad_popup_y: int | None = None
     scratchpad_popup_w: int | None = None
     scratchpad_popup_h: int | None = None
+    # Live Assist transcript panel size, persisted once the user resizes it;
+    # None means "use the compact default." Position is never persisted -
+    # it auto-anchors to the active monitor, same philosophy as the pill.
+    live_assist_panel_w: int | None = None
+    live_assist_panel_h: int | None = None
+    # LA-08: which live_assist_assistants row the suggestion engine (LA-09)
+    # applies. None means "use the builtin General Assistant" - resolved at
+    # call time (features/liveassist/assistants.py), not cached here, so a
+    # change in the main window's Assistants section reaches the next
+    # suggestion request without a restart.
+    live_assist_active_assistant_id: str | None = None
     # Main-window UI preferences (not pipeline behavior) - persisted the same
     # way as everything else in this file, not via browser localStorage,
     # since pywebview's storage_path handling is inconsistent across windows
@@ -73,6 +103,56 @@ class Settings:
     ui_sidebar_collapsed: bool = False
     ui_dictionary_banner_dismissed: bool = False
     ui_snippets_banner_dismissed: bool = False
+    # Hides the main window from screen capture/recording/Print Screen (same
+    # mechanism as the dictation pill) - on by default for privacy. Turn off
+    # temporarily when you actually want to screenshot the main window
+    # yourself (e.g. to show someone a settings page).
+    exclude_main_window_from_capture: bool = True
+
+    def hotkey_fields(self) -> dict[str, str]:
+        """Every app-level (non-per-transform) hotkey, keyed by its Settings
+        field name - the set LA-07's conflict check validates against."""
+        return {
+            "hotkey": self.hotkey,
+            "transform_polish_hotkey": self.transform_polish_hotkey,
+            "transform_prompt_engineer_hotkey": self.transform_prompt_engineer_hotkey,
+            "command_mode_hotkey": self.command_mode_hotkey,
+            "panic_hide_hotkey": self.panic_hide_hotkey,
+            "live_assist_hotkey": self.live_assist_hotkey,
+            "live_assist_ask_hotkey": self.live_assist_ask_hotkey,
+            "live_assist_capture_hotkey": self.live_assist_capture_hotkey,
+        }
+
+    def conflicting_hotkey(self, changing_key: str, new_spec: str) -> str | None:
+        """The field/transform name of another binding that collides with
+        new_spec, or None. Compares parsed (modifier-set, main-key) rather
+        than raw strings so "<shift>+<ctrl>+l" and "<ctrl>+<shift>+l" are
+        correctly seen as the same combo. Before this, rebinding any hotkey
+        - old or new - just silently saved over whatever already used that
+        combo; nothing checked at all."""
+        from talkflow.capture.hotkey import _parse_spec
+        try:
+            new_parsed = _parse_spec(new_spec)
+        except ValueError:
+            return None  # an invalid spec is a different problem, not a conflict
+        for key, spec in self.hotkey_fields().items():
+            if key == changing_key or not spec:
+                continue
+            try:
+                if _parse_spec(spec) == new_parsed:
+                    return key
+            except ValueError:
+                continue
+        from talkflow.features.transforms import store as transform_store
+        for transform in transform_store.list_custom_transforms():
+            if not transform.hotkey or transform.id == changing_key:
+                continue
+            try:
+                if _parse_spec(transform.hotkey) == new_parsed:
+                    return f"transform:{transform.name}"
+            except ValueError:
+                continue
+        return None
 
     def partial_paste_allowed(self) -> bool:
         """Partial paste synthesizes Ctrl+V mid-recording; with a held

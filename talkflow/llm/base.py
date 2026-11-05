@@ -11,6 +11,14 @@ class CleanupResult:
     latency_ms: float
 
 
+@dataclass
+class SuggestionResult:
+    suggestion_text: str  # "" when has_suggestion is False
+    has_suggestion: bool
+    model_used: str
+    latency_ms: float
+
+
 class LlmAdapter(ABC):
     @abstractmethod
     def cleanup(
@@ -38,3 +46,21 @@ class LlmAdapter(ABC):
         Transforms and Command Mode's edit intent) - no dictation-cleanup
         framing, no language-preservation assumption, just: apply this
         instruction to this text."""
+
+    @abstractmethod
+    def suggest(
+        self,
+        transcript_lines: list[tuple[str, str]],
+        assistant_name: str,
+        assistant_task: str,
+        assistant_style: str,
+        language: str,
+        custom_system_prompt: str | None = None,
+    ) -> "SuggestionResult":
+        """LA-09: draft what ME could say/send next, grounded in the given
+        (source, text) transcript lines so far, in the assistant's persona.
+        Returns has_suggestion=False (not a fabricated reply) when the model
+        decides there's genuinely nothing useful yet - see prompts.py's
+        NO_SUGGESTION_MARKER. custom_system_prompt, when set, fully replaces
+        assistant_task/assistant_style with a hand-written persona prompt -
+        see prompts.py's build_suggestion_messages."""

@@ -13,3 +13,5 @@ pystray
 pytest
 sherpa-onnx
 langdetect
+websocket-client
+flexaudio

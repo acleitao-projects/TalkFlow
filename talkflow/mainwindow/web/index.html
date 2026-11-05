@@ -398,6 +398,7 @@
     <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="transforms"><i class="ti ti-wand"></i><span class="nav-label" data-i18n="nav.transforms">Transforms</span></div>
     <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="command_mode"><i class="ti ti-terminal-2"></i><span class="nav-label" data-i18n="nav.command_mode">Command Mode</span></div>
     <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="notetaker"><i class="ti ti-device-tv"></i><span class="nav-label" data-i18n="nav.notetaker">Notetaker</span></div>
+    <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="assistants"><i class="ti ti-users"></i><span class="nav-label" data-i18n="nav.assistants">Assistants</span></div>
     <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="registry"><i class="ti ti-adjustments"></i><span class="nav-label" data-i18n="nav.registry">Model Registry</span></div>
     <div class="nav-item rounded-lg px-3 py-2 flex items-center gap-2.5" data-tab="settings"><i class="ti ti-settings"></i><span class="nav-label" data-i18n="nav.settings">Settings</span></div>
   </nav>
@@ -822,6 +823,32 @@
       </div>
     </section>
 
+    <section id="tab-assistants" class="hidden">
+      <div class="dict-wrap">
+      <h1 class="section-title" data-i18n="title.assistants">Assistants</h1>
+      <p class="section-sub mb-3" data-i18n="sub.assistants">Who Live Assist's suggestion engine is acting as, and what it's helping with - independent of any focused app. Pick which one is active below; it applies to the next suggestion request without restarting.</p>
+
+      <label class="block mb-4 max-w-md">
+        <div class="font-medium mb-1" data-i18n="assistants.active_label">Active assistant</div>
+        <select id="assistant-active-select" class="w-full px-3 py-2" onchange="setActiveAssistant(this.value)"></select>
+      </label>
+
+      <div id="assistant-list" class="card divide-y divide-[var(--border)] mb-4"></div>
+      <div class="flex flex-wrap gap-2 items-start mb-2">
+        <input id="asst-name" data-i18n-placeholder="assistants.name_placeholder" placeholder="name, e.g. Sales Coach" class="px-3 py-2 flex-1 min-w-[140px]" />
+        <input id="asst-task" data-i18n-placeholder="assistants.task_placeholder" placeholder="task, e.g. help close this deal" class="px-3 py-2 flex-1 min-w-[180px]" />
+        <input id="asst-style" data-i18n-placeholder="assistants.style_placeholder" placeholder="response style, e.g. confident, concise" class="px-3 py-2 flex-1 min-w-[180px]" />
+      </div>
+      <label class="block mb-2">
+        <div class="hotkey-row-sub mb-1" data-i18n="assistants.custom_prompt_label">Advanced: custom system prompt (optional - overrides task/response style above with a full hand-written persona)</div>
+        <textarea id="asst-custom-prompt" data-i18n-placeholder="assistants.custom_prompt_placeholder" placeholder="Paste a full ROLE/TASK/STYLE-style prompt here to fully override the fields above..." class="w-full px-3 py-2" rows="4"></textarea>
+      </label>
+      <div class="flex flex-wrap gap-2 items-start">
+        <button onclick="createAssistant()" class="btn btn-primary shrink-0" data-i18n="dict.add">Add</button>
+      </div>
+      </div>
+    </section>
+
     <section id="tab-registry" class="hidden">
       <div class="dict-wrap">
       <h1 class="section-title" data-i18n="title.registry">Model Registry</h1>
@@ -838,6 +865,19 @@
         <button onclick="testAndSaveRegistry('asr')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
       </div>
       <div id="asr-test-result" class="text-sm mb-6"></div>
+
+      <h2 class="text-[15px] font-semibold mb-2" data-i18n="registry.live_assist_asr_title">Live Assist ASR &mdash; optional, overrides ASR above for Live Assist only</h2>
+      <p class="section-sub" data-i18n="registry.live_assist_asr_sub">Leave empty to use the ASR provider above. Two cloud options for Live Assist specifically, if local is too slow for two simultaneous streams: provider "openai-realtime" + model "gpt-live-transcribe" for true live streaming captions with a silence-aware noise gate (recommended - cheap, since dead air is never sent); or provider "openai" + model "whisper-1"/"gpt-4o-transcribe" for the simpler batch path (no live interim text, transcript arrives all at once per turn). base_url only matters for the batch path (e.g. "https://api.openai.com") - the realtime path ignores it.</p>
+      <div id="registry-live_assist_asr" class="card divide-y divide-[var(--border)] mb-3"></div>
+      <div class="flex flex-wrap gap-2 mb-1">
+        <input id="live_assist_asr-name" placeholder="name e.g. OpenAI Realtime" class="px-3 py-2 flex-1 min-w-[140px]" />
+        <input id="live_assist_asr-provider" placeholder="provider e.g. openai-realtime" class="px-3 py-2 flex-1 min-w-[110px]" />
+        <input id="live_assist_asr-base-url" placeholder="base_url (batch path only)" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <input id="live_assist_asr-model-id" placeholder="model id e.g. gpt-live-transcribe" class="px-3 py-2 flex-1 min-w-[140px]" />
+        <input id="live_assist_asr-api-key" placeholder="API key" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
+        <button onclick="testAndSaveRegistry('live_assist_asr')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
+      </div>
+      <div id="live_assist_asr-test-result" class="text-sm mb-6"></div>
 
       <h2 class="text-[15px] font-semibold mb-2" data-i18n="registry.cleanup_title">Cleanup &mdash; text to text, OpenAI-compatible (local or cloud)</h2>
       <div id="registry-cleanup" class="card divide-y divide-[var(--border)] mb-3"></div>
@@ -872,6 +912,14 @@
           <div><div class="hotkey-row-label" data-i18n="settings.live_assist_label">Live Assist</div><div class="hotkey-row-sub" data-i18n="settings.live_assist_sub">Start/stop a Live Assist session</div></div>
           <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-liveassist"></span><button class="btn btn-secondary" onclick="changeMainHotkey('live_assist_hotkey','th-liveassist')" data-i18n="btn.change">Change</button></div>
         </div>
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label" data-i18n="settings.live_assist_ask_label">Live Assist: Ask</div><div class="hotkey-row-sub" data-i18n="settings.live_assist_ask_sub">Request a suggestion grounded in the conversation so far</div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-liveassist-ask"></span><button class="btn btn-secondary" onclick="changeMainHotkey('live_assist_ask_hotkey','th-liveassist-ask')" data-i18n="btn.change">Change</button></div>
+        </div>
+        <div class="hotkey-row px-4">
+          <div><div class="hotkey-row-label" data-i18n="settings.live_assist_capture_label">Live Assist: Capture</div><div class="hotkey-row-sub" data-i18n="settings.live_assist_capture_sub">Capture the screen and ask a question about it</div></div>
+          <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-liveassist-capture"></span><button class="btn btn-secondary" onclick="changeMainHotkey('live_assist_capture_hotkey','th-liveassist-capture')" data-i18n="btn.change">Change</button></div>
+        </div>
       </div>
 
       <h2 class="text-[15px] font-semibold mb-3" data-i18n="settings.general_title">General</h2>
@@ -893,12 +941,31 @@
           <select id="s-input-device" class="w-full px-3 py-2"></select>
           <div class="hotkey-row-sub mt-1" data-i18n="settings.restart_hint">Restart to apply.</div>
         </label>
+        <label class="block">
+          <div class="font-medium mb-1" data-i18n="settings.liveassist_sysaudio_label">Live Assist: "THEM" audio source</div>
+          <select id="s-liveassist-sysaudio" class="w-full px-3 py-2"></select>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.liveassist_sysaudio_sub">Default captures your whole system output, which some audio interfaces (mixers/soundboards) mix your own mic into, causing duplicate transcript lines. Pick the specific call app here to capture only its audio. Takes effect on the next Live Assist session.</div>
+        </label>
+        <label class="block">
+          <div class="font-medium mb-1" data-i18n="settings.liveassist_mic_label">Live Assist: "ME" mic device</div>
+          <select id="s-liveassist-mic" class="w-full px-3 py-2"></select>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.liveassist_mic_sub">Override which recording device Live Assist uses for your own voice - independent of the regular dictation microphone above. Takes effect on the next Live Assist session.</div>
+        </label>
+        <label class="block">
+          <div class="font-medium mb-1" data-i18n="settings.liveassist_sysaudio_device_label">Live Assist: "THEM" output device (alternative to the app picker above)</div>
+          <select id="s-liveassist-sysaudio-device" class="w-full px-3 py-2"></select>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.liveassist_sysaudio_device_sub">Loopback a specific playback device instead of a specific app - e.g. a dedicated "Chat" output on an audio interface. Only used when no app is picked above. Takes effect on the next Live Assist session.</div>
+        </label>
         <label class="flex items-center gap-2"><input type="checkbox" id="s-retain-history" class="w-4 h-4" /> <span data-i18n="settings.retain_history">Retain history</span></label>
         <label class="block">
           <div class="flex items-center gap-2"><input type="checkbox" id="s-partial-paste" class="w-4 h-4" /> <span data-i18n="settings.partial_paste_label">Paste while speaking</span></div>
           <div class="hotkey-row-sub mt-1" data-i18n="settings.partial_paste_sub">Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.</div>
         </label>
         <label class="flex items-center gap-2"><input type="checkbox" id="s-launch-at-login" class="w-4 h-4" /> <span data-i18n="settings.launch_at_login">Launch TalkFlow at login</span></label>
+        <label class="block">
+          <div class="flex items-center gap-2"><input type="checkbox" id="s-hide-from-capture" class="w-4 h-4" /> <span data-i18n="settings.hide_from_capture_label">Hide this window from screen capture</span></div>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.hide_from_capture_sub">Keeps this window out of Print Screen, screen shares and recordings. Turn off temporarily if you want to screenshot this window yourself - takes effect immediately, no restart needed.</div>
+        </label>
         <button onclick="saveSettings()" class="btn btn-primary" data-i18n="settings.save">Save</button>
       </div>
       </div>
@@ -917,11 +984,11 @@ const TRANSLATIONS = {
     'nav.dictation': 'Dictation', 'nav.history': 'History', 'nav.insights': 'Insights',
     'nav.style': 'Style', 'nav.dictionary': 'Dictionary', 'nav.snippets': 'Snippets',
     'nav.scratchpad': 'Scratchpad', 'nav.transforms': 'Transforms', 'nav.command_mode': 'Command Mode',
-    'nav.notetaker': 'Notetaker', 'nav.registry': 'Model Registry', 'nav.settings': 'Settings',
+    'nav.notetaker': 'Notetaker', 'nav.assistants': 'Assistants', 'nav.registry': 'Model Registry', 'nav.settings': 'Settings',
     'title.dictation': 'Dictation', 'title.history': 'History', 'title.insights': 'Insights',
     'title.style': 'Style', 'title.dictionary': 'Dictionary', 'title.snippets': 'Snippets',
     'title.scratchpad': 'Scratchpad', 'title.transforms': 'Transforms', 'title.command_mode': 'Command Mode',
-    'title.notetaker': 'Notetaker', 'title.registry': 'Model Registry', 'title.settings': 'Settings',
+    'title.notetaker': 'Notetaker', 'title.assistants': 'Assistants', 'title.registry': 'Model Registry', 'title.settings': 'Settings',
     'sub.dictation': 'Press your configured hotkey anywhere to dictate. The floating pill in the corner of your screen shows live status.',
     'sub.history': 'Your past dictations. Edit a transcript and save to teach the Dictionary new terms.',
     'sub.insights': 'Computed from your local dictation history — nothing is sent anywhere, nothing is benchmarked against other users.',
@@ -934,6 +1001,14 @@ const TRANSLATIONS = {
     'sub.transforms_custom': 'Up to 8, each with its own hotkey. Restart TalkFlow after adding or removing one.',
     'sub.command_mode': 'Spoken instructions that edit text, draft a reply, or search — no trigger phrase, requires a focused editable field.',
     'sub.notetaker': "Start or stop a meeting recording from the tray icon (mic + system audio). Least-tested feature — verify loopback actually captures your meeting app's audio before relying on it.",
+    'sub.assistants': "Who Live Assist's suggestion engine is acting as, and what it's helping with - independent of any focused app. Pick which one is active below; it applies to the next suggestion request without restarting.",
+    'assistants.active_label': 'Active assistant',
+    'assistants.name_placeholder': 'name, e.g. Sales Coach',
+    'assistants.task_placeholder': 'task, e.g. help close this deal',
+    'assistants.style_placeholder': 'response style, e.g. confident, concise',
+    'assistants.none': 'No assistants yet.',
+    'assistants.custom_prompt_label': 'Advanced: custom system prompt (optional - overrides task/response style above with a full hand-written persona)',
+    'assistants.custom_prompt_placeholder': 'Paste a full ROLE/TASK/STYLE-style prompt here to fully override the fields above...',
     'sub.registry': 'Every pipeline stage\'s provider is swappable — nothing is hardcoded. "Test" tries a real request before anything is saved, so a bad key or URL can\'t break dictation.',
     'sub.settings_shortcuts': 'Click Change, then press the keys you want &mdash; no typing required.',
     'dict.greeting_prefix': 'Get back into the flow with',
@@ -1061,6 +1136,8 @@ const TRANSLATIONS = {
     'note.banner_sub': 'Toggle recording from the tray icon - mic + system audio are transcribed and summarized automatically.',
     'note.empty': 'No meetings recorded yet.',
     'registry.asr_title': 'ASR &mdash; speech to text',
+    'registry.live_assist_asr_title': 'Live Assist ASR &mdash; optional, overrides ASR above for Live Assist only',
+    'registry.live_assist_asr_sub': 'Leave empty to use the ASR provider above. Set this to use a faster cloud API (e.g. OpenAI: base_url "https://api.openai.com", model id "whisper-1" or "gpt-4o-transcribe", with your API key) for Live Assist specifically, if the local model is too slow for two simultaneous streams on your hardware. No live interim text with a cloud API - the transcript for each turn arrives all at once instead of word-by-word.',
     'registry.cleanup_title': 'Cleanup &mdash; text to text, OpenAI-compatible (local or cloud)',
     'registry.test_save': 'Test &amp; Save',
     'registry.active': 'Active',
@@ -1072,6 +1149,10 @@ const TRANSLATIONS = {
     'settings.panic_hide_sub': 'Instantly hide the pill, independent of capture-exclusion',
     'settings.live_assist_label': 'Live Assist',
     'settings.live_assist_sub': 'Start/stop a Live Assist session',
+    'settings.live_assist_ask_label': 'Live Assist: Ask',
+    'settings.live_assist_ask_sub': 'Request a suggestion grounded in the conversation so far',
+    'settings.live_assist_capture_label': 'Live Assist: Capture',
+    'settings.live_assist_capture_sub': 'Capture the screen and ask a question about it',
     'settings.general_title': 'General',
     'settings.trigger_mode_label': 'Trigger mode',
     'settings.languages_label': 'Dictation languages',
@@ -1082,18 +1163,26 @@ const TRANSLATIONS = {
     'settings.partial_paste_label': 'Paste while speaking',
     'settings.partial_paste_sub': 'Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.',
     'settings.launch_at_login': 'Launch TalkFlow at login',
+    'settings.hide_from_capture_label': 'Hide this window from screen capture',
+    'settings.hide_from_capture_sub': 'Keeps this window out of Print Screen, screen shares and recordings. Turn off temporarily if you want to screenshot this window yourself - takes effect immediately, no restart needed.',
     'settings.save': 'Save',
     'settings.system_default': 'System default',
+    'settings.liveassist_sysaudio_label': 'Live Assist: "THEM" audio source',
+    'settings.liveassist_sysaudio_sub': 'Default captures your whole system output, which some audio interfaces (mixers/soundboards) mix your own mic into, causing duplicate transcript lines. Pick the specific call app here to capture only its audio. Takes effect on the next Live Assist session.',
+    'settings.liveassist_mic_label': 'Live Assist: "ME" mic device',
+    'settings.liveassist_mic_sub': 'Override which recording device Live Assist uses for your own voice - independent of the regular dictation microphone above. Takes effect on the next Live Assist session.',
+    'settings.liveassist_sysaudio_device_label': 'Live Assist: "THEM" output device (alternative to the app picker above)',
+    'settings.liveassist_sysaudio_device_sub': 'Loopback a specific playback device instead of a specific app - e.g. a dedicated "Chat" output on an audio interface. Only used when no app is picked above. Takes effect on the next Live Assist session.',
   },
   'pt-BR': {
     'nav.dictation': 'Ditado', 'nav.history': 'Histórico', 'nav.insights': 'Estatísticas',
     'nav.style': 'Estilo', 'nav.dictionary': 'Dicionário', 'nav.snippets': 'Atalhos',
     'nav.scratchpad': 'Bloco de notas', 'nav.transforms': 'Transformações', 'nav.command_mode': 'Modo Comando',
-    'nav.notetaker': 'Anotador', 'nav.registry': 'Registro de Modelos', 'nav.settings': 'Configurações',
+    'nav.notetaker': 'Anotador', 'nav.assistants': 'Assistentes', 'nav.registry': 'Registro de Modelos', 'nav.settings': 'Configurações',
     'title.dictation': 'Ditado', 'title.history': 'Histórico', 'title.insights': 'Estatísticas',
     'title.style': 'Estilo', 'title.dictionary': 'Dicionário', 'title.snippets': 'Atalhos',
     'title.scratchpad': 'Bloco de notas', 'title.transforms': 'Transformações', 'title.command_mode': 'Modo Comando',
-    'title.notetaker': 'Anotador', 'title.registry': 'Registro de Modelos', 'title.settings': 'Configurações',
+    'title.notetaker': 'Anotador', 'title.assistants': 'Assistentes', 'title.registry': 'Registro de Modelos', 'title.settings': 'Configurações',
     'sub.dictation': 'Pressione o atalho configurado em qualquer lugar para ditar. A pílula flutuante no canto da tela mostra o status em tempo real.',
     'sub.history': 'Seus ditados anteriores. Edite uma transcrição e salve para ensinar novos termos ao Dicionário.',
     'sub.insights': 'Calculado a partir do seu histórico local de ditados — nada é enviado pra nenhum lugar, nada é comparado com outros usuários.',
@@ -1106,6 +1195,14 @@ const TRANSLATIONS = {
     'sub.transforms_custom': 'Até 8, cada um com seu próprio atalho. Reinicie o TalkFlow depois de adicionar ou remover um.',
     'sub.command_mode': 'Instruções faladas que editam texto, rascunham uma resposta ou pesquisam — sem frase de gatilho, precisa de um campo editável em foco.',
     'sub.notetaker': 'Inicia ou para uma gravação de reunião pelo ícone da bandeja (microfone + áudio do sistema). Funcionalidade menos testada — confirme que a captura do áudio do seu app de reunião funciona antes de confiar nela.',
+    'sub.assistants': 'Quem o motor de sugestões do Live Assist está representando, e o que ele está ajudando com - independente de qual app está em foco. Escolha qual está ativo abaixo; aplica-se à próxima sugestão sem reiniciar.',
+    'assistants.active_label': 'Assistente ativo',
+    'assistants.name_placeholder': 'nome, ex: Coach de Vendas',
+    'assistants.task_placeholder': 'tarefa, ex: ajudar a fechar esse negócio',
+    'assistants.style_placeholder': 'estilo de resposta, ex: confiante, direto',
+    'assistants.none': 'Nenhum assistente ainda.',
+    'assistants.custom_prompt_label': 'Avançado: prompt de sistema personalizado (opcional - substitui tarefa/estilo acima por uma persona completa escrita à mão)',
+    'assistants.custom_prompt_placeholder': 'Cole aqui um prompt completo no estilo ROLE/TASK/STYLE para substituir totalmente os campos acima...',
     'sub.registry': 'O provedor de cada estágio do pipeline é trocável — nada é fixo no código. "Test" tenta uma requisição real antes de salvar, pra uma chave ou URL errada não quebrar o ditado.',
     'sub.settings_shortcuts': 'Clique em Change e aperte as teclas desejadas &mdash; não precisa digitar.',
     'dict.greeting_prefix': 'Volte ao fluxo com',
@@ -1233,6 +1330,8 @@ const TRANSLATIONS = {
     'note.banner_sub': 'Ative a gravação pelo ícone da bandeja - microfone + áudio do sistema são transcritos e resumidos automaticamente.',
     'note.empty': 'Nenhuma reunião registrada ainda.',
     'registry.asr_title': 'ASR &mdash; voz para texto',
+    'registry.live_assist_asr_title': 'ASR do Live Assist &mdash; opcional, substitui o ASR acima só para o Live Assist',
+    'registry.live_assist_asr_sub': 'Deixe em branco para usar o provedor de ASR acima. Configure isto para usar uma API de nuvem mais rápida (ex: OpenAI: base_url "https://api.openai.com", model id "whisper-1" ou "gpt-4o-transcribe", com sua API key) só para o Live Assist, caso o modelo local esteja lento demais para dois streams simultâneos no seu hardware. Sem texto parcial em tempo real com uma API de nuvem - a transcrição de cada fala chega de uma vez, não palavra por palavra.',
     'registry.cleanup_title': 'Limpeza &mdash; texto para texto, compatível com OpenAI (local ou nuvem)',
     'registry.test_save': 'Testar e Salvar',
     'registry.active': 'Ativo',
@@ -1244,6 +1343,10 @@ const TRANSLATIONS = {
     'settings.panic_hide_sub': 'Oculta a pílula instantaneamente, independente da exclusão de captura',
     'settings.live_assist_label': 'Live Assist',
     'settings.live_assist_sub': 'Inicia/para uma sessão do Live Assist',
+    'settings.live_assist_ask_label': 'Live Assist: Perguntar',
+    'settings.live_assist_ask_sub': 'Pede uma sugestão com base na conversa até agora',
+    'settings.live_assist_capture_label': 'Live Assist: Capturar',
+    'settings.live_assist_capture_sub': 'Captura a tela e pergunta algo sobre ela',
     'settings.general_title': 'Geral',
     'settings.trigger_mode_label': 'Modo de ativação',
     'settings.languages_label': 'Idiomas de ditado',
@@ -1254,8 +1357,16 @@ const TRANSLATIONS = {
     'settings.partial_paste_label': 'Colar enquanto fala',
     'settings.partial_paste_sub': 'Insere o texto a cada pausa em vez de tudo de uma vez. Cada pedaço é limpo sozinho, então a limpeza fica mais fraca. Não é usado com um atalho de modificador segurado (ex: Ctrl+Shift+D no modo segurar). Reinicie para aplicar.',
     'settings.launch_at_login': 'Abrir o TalkFlow ao fazer login',
+    'settings.hide_from_capture_label': 'Ocultar esta janela da captura de tela',
+    'settings.hide_from_capture_sub': 'Mantém esta janela fora do Print Screen, compartilhamentos de tela e gravações. Desative temporariamente se quiser tirar um print desta janela - aplica na hora, sem reiniciar.',
     'settings.save': 'Salvar',
     'settings.system_default': 'Padrão do sistema',
+    'settings.liveassist_sysaudio_label': 'Live Assist: fonte de áudio do "ELES"',
+    'settings.liveassist_sysaudio_sub': 'O padrão captura todo o áudio do sistema, que algumas interfaces de áudio (mesas/soundboards) misturam com seu próprio microfone, causando linhas duplicadas na transcrição. Escolha aqui o app de chamada específico para capturar só o áudio dele. Vale a partir da próxima sessão do Live Assist.',
+    'settings.liveassist_mic_label': 'Live Assist: dispositivo de microfone do "EU"',
+    'settings.liveassist_mic_sub': 'Sobrepõe qual dispositivo de gravação o Live Assist usa para sua própria voz - independente do microfone de ditado normal acima. Vale a partir da próxima sessão do Live Assist.',
+    'settings.liveassist_sysaudio_device_label': 'Live Assist: dispositivo de saída do "ELES" (alternativa ao seletor de app acima)',
+    'settings.liveassist_sysaudio_device_sub': 'Captura (loopback) um dispositivo de reprodução específico em vez de um app específico - ex: uma saída dedicada de "Chat" numa interface de áudio. Só é usado quando nenhum app está escolhido acima. Vale a partir da próxima sessão do Live Assist.',
   },
 };
 
@@ -1361,6 +1472,7 @@ async function loadTab(tab) {
   else if (tab === 'snippets') { await loadSnippets(); }
   else if (tab === 'scratchpad') { await loadScratchpad(); }
   else if (tab === 'notetaker') { await loadMeetings(); }
+  else if (tab === 'assistants') { await loadAssistants(); }
   else if (tab === 'registry') { await loadRegistry(); }
   else if (tab === 'command_mode') { await loadMainHotkeyChips(); }
   else if (tab === 'settings') { await loadSettings(); }
@@ -1661,7 +1773,14 @@ function captureNextHotkey(chipEl, onCaptured) {
 
 async function changeMainHotkey(settingsKey, chipId) {
   const chip = $(chipId);
+  const previousLabel = chip.textContent;
   captureNextHotkey(chip, async (spec) => {
+    const { conflict } = await pywebview.api.check_hotkey_conflict(settingsKey, spec);
+    if (conflict) {
+      chip.textContent = previousLabel;
+      alert(`That combo is already used by "${conflict}" - pick a different one.`);
+      return;
+    }
     const current = await pywebview.api.get_settings();
     current[settingsKey] = spec;
     await pywebview.api.save_settings(current);
@@ -1676,6 +1795,8 @@ async function loadMainHotkeyChips() {
   if ($('th-cmd')) $('th-cmd').textContent = formatHotkeySpec(s.command_mode_hotkey);
   if ($('th-panic')) $('th-panic').textContent = formatHotkeySpec(s.panic_hide_hotkey);
   if ($('th-liveassist')) $('th-liveassist').textContent = formatHotkeySpec(s.live_assist_hotkey);
+  if ($('th-liveassist-ask')) $('th-liveassist-ask').textContent = formatHotkeySpec(s.live_assist_ask_hotkey);
+  if ($('th-liveassist-capture')) $('th-liveassist-capture').textContent = formatHotkeySpec(s.live_assist_capture_hotkey);
 }
 
 async function loadHistory(query) {
@@ -2335,6 +2456,41 @@ async function loadMeetings() {
 }
 async function deleteMeeting(id) { await pywebview.api.delete_meeting(id); loadMeetings(); }
 
+// ---- Assistants (LA-08) ----
+async function loadAssistants() {
+  const [assistants, activeId] = await Promise.all([
+    pywebview.api.list_assistants(), pywebview.api.get_active_assistant_id(),
+  ]);
+  $('assistant-list').innerHTML = assistants.map(a => `
+    <div class="list-row">
+      <div class="min-w-0">
+        <div class="font-medium">${escapeHtml(a.name)}</div>
+        <div class="text-xs text-[var(--text-secondary)]">${escapeHtml(a.task)}${a.response_style ? ' &middot; ' + escapeHtml(a.response_style) : ''}</div>
+      </div>
+      ${a.is_builtin ? '' : `<span class="row-del-btn" onclick="deleteAssistant('${a.id}')"><i class="ti ti-trash"></i></span>`}
+    </div>`).join('') || `<div class="list-row text-[var(--text-secondary)]">${t('assistants.none')}</div>`;
+
+  const select = $('assistant-active-select');
+  select.innerHTML = assistants.map(a =>
+    `<option value="${a.id}" ${(!activeId && a.is_builtin) || a.id === activeId ? 'selected' : ''}>${escapeHtml(a.name)}</option>`
+  ).join('');
+}
+async function createAssistant() {
+  const name = $('asst-name').value.trim(), task = $('asst-task').value.trim(), style = $('asst-style').value.trim();
+  const customPrompt = $('asst-custom-prompt').value.trim() || null;
+  if (!name || !task) return;
+  const result = await pywebview.api.create_assistant(name, task, style, customPrompt);
+  if (!result.ok) { alert(result.error); return; }
+  $('asst-name').value = ''; $('asst-task').value = ''; $('asst-style').value = ''; $('asst-custom-prompt').value = '';
+  loadAssistants();
+}
+async function deleteAssistant(id) {
+  const result = await pywebview.api.delete_assistant(id);
+  if (!result.ok) { alert(result.error); return; }
+  loadAssistants();
+}
+async function setActiveAssistant(id) { await pywebview.api.set_active_assistant(id); }
+
 function renderRegistryRows(stage, rows) {
   return rows.map(a => `<div class="list-row">
     <span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.provider)} &middot; ${escapeHtml(a.base_url)} &middot; ${escapeHtml(a.model_id)}</span>
@@ -2349,6 +2505,8 @@ function renderRegistryRows(stage, rows) {
 async function loadRegistry() {
   const asr = await pywebview.api.list_registry('asr');
   $('registry-asr').innerHTML = renderRegistryRows('asr', asr);
+  const liveAssistAsr = await pywebview.api.list_registry('live_assist_asr');
+  $('registry-live_assist_asr').innerHTML = renderRegistryRows('live_assist_asr', liveAssistAsr);
   const cleanup = await pywebview.api.list_registry('cleanup');
   $('registry-cleanup').innerHTML = renderRegistryRows('cleanup', cleanup);
 }
@@ -2370,7 +2528,10 @@ async function testAndSaveRegistry(stage) {
   const modelId = $(`${stage}-model-id`).value.trim();
   const apiKey = $(`${stage}-api-key`).value || null;
   const resultEl = $(`${stage}-test-result`);
-  if (!name || !provider || !baseUrl || !modelId) {
+  // base_url isn't meaningful for the websocket-based "openai-realtime"
+  // provider (realtime_asr.py hardcodes the wss:// endpoint) - don't block
+  // saving it on an empty base_url field.
+  if (!name || !provider || !modelId || (!baseUrl && provider !== 'openai-realtime')) {
     resultEl.innerHTML = '<span style="color:var(--danger)">Fill in name, provider, base_url, and model id.</span>';
     return;
   }
@@ -2400,12 +2561,31 @@ async function loadSettings() {
   $('s-retain-history').checked = s.retain_history;
   $('s-partial-paste').checked = s.partial_paste;
   $('s-launch-at-login').checked = s.launch_at_login;
+  $('s-hide-from-capture').checked = s.exclude_main_window_from_capture;
 
   const devices = await pywebview.api.list_input_devices();
   const sel = $('s-input-device');
   sel.innerHTML = `<option value="">${t('settings.system_default')}</option>` +
     devices.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
   sel.value = s.input_device_id || '';
+
+  const procs = await pywebview.api.list_audio_processes();
+  const sysSel = $('s-liveassist-sysaudio');
+  sysSel.innerHTML = `<option value="">${t('settings.system_default')}</option>` +
+    procs.map(p => `<option value="${escapeHtml(p.executable || p.name)}">${escapeHtml(p.name)}</option>`).join('');
+  sysSel.value = s.live_assist_system_audio_process_name || '';
+
+  const laMics = await pywebview.api.list_liveassist_mic_devices();
+  const laMicSel = $('s-liveassist-mic');
+  laMicSel.innerHTML = `<option value="">${t('settings.system_default')}</option>` +
+    laMics.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('');
+  laMicSel.value = s.live_assist_mic_device_name || '';
+
+  const laSpeakers = await pywebview.api.list_liveassist_speaker_devices();
+  const laSpeakerSel = $('s-liveassist-sysaudio-device');
+  laSpeakerSel.innerHTML = `<option value="">${t('settings.system_default')}</option>` +
+    laSpeakers.map(sp => `<option value="${escapeHtml(sp.name)}">${escapeHtml(sp.name)}</option>`).join('');
+  laSpeakerSel.value = s.live_assist_system_audio_device_name || '';
 }
 async function saveSettings() {
   const current = await pywebview.api.get_settings();
@@ -2414,9 +2594,13 @@ async function saveSettings() {
     trigger_mode: $('s-trigger-mode').value,
     language_allowlist: $('s-languages').value.split(',').map(s => s.trim()).filter(Boolean),
     input_device_id: $('s-input-device').value || null,
+    live_assist_system_audio_process_name: $('s-liveassist-sysaudio').value || null,
+    live_assist_mic_device_name: $('s-liveassist-mic').value || null,
+    live_assist_system_audio_device_name: $('s-liveassist-sysaudio-device').value || null,
     retain_history: $('s-retain-history').checked,
     partial_paste: $('s-partial-paste').checked,
     launch_at_login: $('s-launch-at-login').checked,
+    exclude_main_window_from_capture: $('s-hide-from-capture').checked,
   });
   loadSettings();
 }

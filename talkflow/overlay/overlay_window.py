@@ -22,13 +22,16 @@ import logging
 import math
 import threading
 import time
-from ctypes import wintypes
 from typing import Callable
 
 import win32api
 import win32con
 import win32gui
 from PIL import Image, ImageDraw, ImageFont
+
+from talkflow.overlay._win32_layered import TRACKMOUSEEVENT as _TRACKMOUSEEVENT
+from talkflow.overlay._win32_layered import exclude_hwnd_from_capture, present_layered
+from talkflow.overlay._win32_layered import user32 as _user32
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +52,11 @@ _LAYOUT = {
     "busy": {"canvas": (76, 30), "pad_bottom": 0},
     "message": {"canvas": (132, 30), "pad_bottom": 0},
 }
+# Assistant-selector strip, drawn ABOVE the existing hover content (see
+# Perssua's own pill for the reference layout) - added as extra canvas
+# height rather than touching any existing mode's size/behavior, per the
+# explicit ask to leave idle/hover/recording/etc. exactly as they are.
+_ASSISTANT_ROW_H = 28
 
 _FILL = (13, 13, 16)
 WM_REFRESH = win32con.WM_USER + 1
@@ -56,62 +64,19 @@ WM_MOUSELEAVE = 0x02A3
 TIMER_ID = 1
 
 
-def _font(size: float, bold: bool = False):
-    for name in (("segoeuib.ttf", "seguisb.ttf") if bold else ("segoeui.ttf",)):
+def _font(size: float, bold: bool = False, italic: bool = False):
+    if bold:
+        names = ("segoeuib.ttf", "seguisb.ttf")
+    elif italic:
+        names = ("segoeuii.ttf",)
+    else:
+        names = ("segoeui.ttf",)
+    for name in names:
         try:
             return ImageFont.truetype(name, max(1, round(size)))
         except OSError:
             continue
     return ImageFont.load_default()
-
-
-class _BITMAPINFOHEADER(ctypes.Structure):
-    _fields_ = [
-        ("biSize", wintypes.DWORD), ("biWidth", wintypes.LONG), ("biHeight", wintypes.LONG),
-        ("biPlanes", wintypes.WORD), ("biBitCount", wintypes.WORD), ("biCompression", wintypes.DWORD),
-        ("biSizeImage", wintypes.DWORD), ("biXPelsPerMeter", wintypes.LONG),
-        ("biYPelsPerMeter", wintypes.LONG), ("biClrUsed", wintypes.DWORD),
-        ("biClrImportant", wintypes.DWORD),
-    ]
-
-
-class _BLENDFUNCTION(ctypes.Structure):
-    _fields_ = [("BlendOp", ctypes.c_ubyte), ("BlendFlags", ctypes.c_ubyte),
-                ("SourceConstantAlpha", ctypes.c_ubyte), ("AlphaFormat", ctypes.c_ubyte)]
-
-
-class _TRACKMOUSEEVENT(ctypes.Structure):
-    _fields_ = [("cbSize", wintypes.DWORD), ("dwFlags", wintypes.DWORD),
-                ("hwndTrack", ctypes.c_void_p), ("dwHoverTime", wintypes.DWORD)]
-
-
-_user32 = ctypes.windll.user32
-_gdi32 = ctypes.windll.gdi32
-_gdi32.CreateCompatibleDC.restype = ctypes.c_void_p
-_gdi32.CreateCompatibleDC.argtypes = [ctypes.c_void_p]
-_gdi32.CreateDIBSection.restype = ctypes.c_void_p
-_gdi32.CreateDIBSection.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT,
-                                    ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p, wintypes.DWORD]
-_gdi32.SelectObject.restype = ctypes.c_void_p
-_gdi32.SelectObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-_gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
-_gdi32.DeleteDC.argtypes = [ctypes.c_void_p]
-_user32.GetDC.restype = ctypes.c_void_p
-_user32.GetDC.argtypes = [ctypes.c_void_p]
-_user32.ReleaseDC.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-_user32.UpdateLayeredWindow.argtypes = [
-    ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(wintypes.POINT), ctypes.POINTER(wintypes.SIZE),
-    ctypes.c_void_p, ctypes.POINTER(wintypes.POINT), wintypes.COLORREF,
-    ctypes.POINTER(_BLENDFUNCTION), wintypes.DWORD,
-]
-_user32.TrackMouseEvent.argtypes = [ctypes.POINTER(_TRACKMOUSEEVENT)]
-_user32.SetWindowPos.argtypes = [ctypes.c_void_p, ctypes.c_void_p] + [ctypes.c_int] * 4 + [wintypes.UINT]
-_user32.GetDpiForWindow.argtypes = [ctypes.c_void_p]
-_user32.SetWindowDisplayAffinity.argtypes = [ctypes.c_void_p, wintypes.DWORD]
-_user32.SetWindowDisplayAffinity.restype = wintypes.BOOL
-
-WDA_MONITOR = 0x00000001
-WDA_EXCLUDEFROMCAPTURE = 0x00000011  # Windows 10 2004+ (build 19041+)
 
 
 class OverlayWindow:
@@ -133,6 +98,9 @@ class OverlayWindow:
         self.on_mic_click: Callable[[], None] | None = None
         self.on_record_click: Callable[[], None] | None = None
         self.on_live_assist_click: Callable[[], None] | None = None
+        self.on_assistant_cycle_click: Callable[[], None] | None = None
+        self.on_open_assistants_click: Callable[[], None] | None = None
+        self._assistant_name = ""
         self._flow_bar_enabled = False
         self._meeting_active = False
         self._live_assist_active = False
@@ -228,7 +196,9 @@ class OverlayWindow:
                         cb = {"cancel": self.on_cancel, "confirm": self.on_confirm,
                               "notes": self.on_notes_click, "mic": self.on_mic_click,
                               "record": self.on_record_click,
-                              "live_assist": self.on_live_assist_click}.get(name)
+                              "live_assist": self.on_live_assist_click,
+                              "assistant_cycle": self.on_assistant_cycle_click,
+                              "assistant_settings": self.on_open_assistants_click}.get(name)
                         if cb:
                             threading.Thread(target=cb, daemon=True).start()
                         break
@@ -291,12 +261,18 @@ class OverlayWindow:
             self._mode = mode
             lay = _LAYOUT[mode]
             cw, ch = lay["canvas"]
-            if mode == "hover" and self._flow_bar_enabled:
-                # The notes button and the Live Assist button both fit in the
-                # base width on their own, but not at the same time - widen
-                # only in the one case that actually needs it, instead of
-                # always reserving dead space nobody's hovering over.
-                cw += 50
+            if mode == "hover":
+                if self._flow_bar_enabled:
+                    # The notes button and the Live Assist button both fit in
+                    # the base width on their own, but not at the same time -
+                    # widen only in the one case that actually needs it,
+                    # instead of always reserving dead space nobody's
+                    # hovering over.
+                    cw += 50
+                # Extra canvas height for the assistant-selector strip drawn
+                # above the existing hover content - added here rather than
+                # in _LAYOUT so idle/recording/busy/message are untouched.
+                ch += _ASSISTANT_ROW_H
             s = self._scale
             pw, ph = round(cw * s), round(ch * s)
             img = self._draw(mode, cw, ch, s)
@@ -304,34 +280,10 @@ class OverlayWindow:
             self._present(img, pw, ph, lay["pad_bottom"], s)
 
     def _present(self, img: Image.Image, pw: int, ph: int, pad_bottom: int, s: float) -> None:
-        pm = img.convert("RGBa")  # premultiplied alpha, as UpdateLayeredWindow wants
-        r, g, b, a = Image.frombytes("RGBA", pm.size, pm.tobytes()).split()
-        data = Image.merge("RGBA", (b, g, r, a)).tobytes()  # BGRA
-
         left, _top, right, bottom = self._work_area()
         x = (left + right) // 2 - pw // 2
         y = bottom - round(BOTTOM_MARGIN * s) - (ph - round(pad_bottom * s))
-
-        bmi = _BITMAPINFOHEADER(ctypes.sizeof(_BITMAPINFOHEADER), pw, -ph, 1, 32, 0, 0, 0, 0, 0, 0)
-        screen_dc = _user32.GetDC(None)
-        mem_dc = _gdi32.CreateCompatibleDC(screen_dc)
-        bits = ctypes.c_void_p()
-        hbmp = _gdi32.CreateDIBSection(mem_dc, ctypes.byref(bmi), 0, ctypes.byref(bits), None, 0)
-        old = _gdi32.SelectObject(mem_dc, hbmp)
-        ctypes.memmove(bits, data, len(data))
-
-        dst = wintypes.POINT(x, y)
-        size = wintypes.SIZE(pw, ph)
-        src = wintypes.POINT(0, 0)
-        blend = _BLENDFUNCTION(0, 0, 255, 1)  # AC_SRC_OVER, AC_SRC_ALPHA
-        _user32.UpdateLayeredWindow(self._hwnd, screen_dc, ctypes.byref(dst), ctypes.byref(size),
-                                    mem_dc, ctypes.byref(src), 0, ctypes.byref(blend), 2)  # ULW_ALPHA
-        # Re-assert topmost without moving/resizing/activating.
-        _user32.SetWindowPos(self._hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)
-        _gdi32.SelectObject(mem_dc, old)
-        _gdi32.DeleteObject(hbmp)
-        _gdi32.DeleteDC(mem_dc)
-        _user32.ReleaseDC(None, screen_dc)
+        present_layered(self._hwnd, img, pw, ph, x, y)
 
     def _draw(self, mode: str, cw: int, ch: int, s: float) -> Image.Image:
         u = s * SS  # logical px -> supersampled px
@@ -387,22 +339,60 @@ class OverlayWindow:
             # Same trick "idle" mode already uses: a background at alpha=1 is
             # visually invisible but still catches mouse input everywhere.
             d.rectangle([0, 0, cw * u, ch * u], fill=(0, 0, 0, 1))
+            # Assistant-selector strip - drawn ABOVE everything else that
+            # already existed here (see the module docstring's _ASSISTANT_ROW_H
+            # comment). yo offsets every pre-existing shape down by exactly
+            # that row's height, so the rest of hover mode is otherwise
+            # pixel-identical to before - nothing about its own behavior or
+            # sizing changed, this strip is purely additive.
+            # Drawn as ONE solid full-width pill (same language as the
+            # "Dictate" tooltip bar right below it), not floating text over
+            # bare background - confirmed live that a visually-empty gap in
+            # the middle of the row made the pill lose hover/close when the
+            # cursor crossed it, even though that area was technically still
+            # click-mapped. A solid bar has no such gap, visually or for
+            # hit-testing, and reads as an intentional control instead of
+            # stray text.
+            pill(0, 0, cw, _ASSISTANT_ROW_H, solid, edge)
+            row_font = _font(11.5 * u)
+            name = self._assistant_name or "Assistant"
+            max_name_w = cw - 44  # leaves room for the chevron + settings icon
+            while name and row_font.getlength(name + " ▾") > max_name_w * u:
+                name = name[:-1]
+            if name != (self._assistant_name or "Assistant"):
+                name = name.rstrip() + "…"
+            self._buttons["assistant_cycle"] = (0, 0, cw - 26, _ASSISTANT_ROW_H)
+            d.text((10 * u, (_ASSISTANT_ROW_H / 2) * u), f"{name} ▾", font=row_font,
+                   fill=(255, 255, 255, 215), anchor="lm")
+            # Divider + small "open Assistants page" icon (a plus) at the
+            # strip's right edge - separate click target from the name/
+            # chevron area, which cycles to the next assistant instead.
+            div_x = cw - 26
+            d.line([div_x * u, 5 * u, div_x * u, (_ASSISTANT_ROW_H - 5) * u], fill=edge, width=round(u))
+            gear_cx, gear_cy = cw - 14, _ASSISTANT_ROW_H / 2
+            d.line([(gear_cx - 4) * u, gear_cy * u, (gear_cx + 4) * u, gear_cy * u],
+                   fill=(255, 255, 255, 190), width=round(1.4 * u))
+            d.line([gear_cx * u, (gear_cy - 4) * u, gear_cx * u, (gear_cy + 4) * u],
+                   fill=(255, 255, 255, 190), width=round(1.4 * u))
+            self._buttons["assistant_settings"] = (div_x, 0, cw, _ASSISTANT_ROW_H)
+
+            yo = _ASSISTANT_ROW_H
             tip_font, hk_font = _font(12 * u, bold=True), _font(12 * u)
-            pill(0, 0, cw, 28, solid, edge)
+            pill(0, yo + 0, cw, yo + 28, solid, edge)
             t1, t2 = "Dictate", ("  " + self._hint) if self._hint else ""
             w1, w2 = tip_font.getlength(t1), hk_font.getlength(t2) if t2 else 0
-            tx, ty = (cw * u - (w1 + w2)) / 2, 14 * u
+            tx, ty = (cw * u - (w1 + w2)) / 2, (yo + 14) * u
             d.text((tx, ty), t1, font=tip_font, fill=white, anchor="lm")
             if t2:
                 d.text((tx + w1, ty), t2, font=hk_font, fill=(255, 255, 255, 150), anchor="lm")
             px0 = (cw - 76) / 2
-            pill(px0, 38, px0 + 76, 70, solid, edge)
-            mic(px0 + 24, 54, white, 0.9)
-            circle(px0 + 52, 54, 10, outline=(255, 255, 255, 190), width=round(2 * u))
+            pill(px0, yo + 38, px0 + 76, yo + 70, solid, edge)
+            mic(px0 + 24, yo + 54, white, 0.9)
+            circle(px0 + 52, yo + 54, 10, outline=(255, 255, 255, 190), width=round(2 * u))
             # Record-meeting dot: red while a meeting recording is running.
-            circle(px0 + 52, 54, 4, fill=(239, 68, 68, 255) if self._meeting_active else white)
-            self._buttons["mic"] = (px0, 38, px0 + 38, 70)
-            self._buttons["record"] = (px0 + 38, 38, px0 + 76, 70)
+            circle(px0 + 52, yo + 54, 4, fill=(239, 68, 68, 255) if self._meeting_active else white)
+            self._buttons["mic"] = (px0, yo + 38, px0 + 38, yo + 70)
+            self._buttons["record"] = (px0 + 38, yo + 38, px0 + 76, yo + 70)
             # Notes icon sits in the existing right margin next to the mic
             # pill - no canvas resize needed (cw already has room), which
             # keeps the window's real hit-test bounds identical to what's
@@ -412,18 +402,18 @@ class OverlayWindow:
             la_x0 = nx0
             if self._flow_bar_enabled:
                 if nx0 + 30 <= cw - 4:
-                    pill(nx0, 40, nx0 + 30, 68, solid, edge)
-                    notes_icon(nx0 + 15, 54, white)
-                    self._buttons["notes"] = (nx0, 40, nx0 + 30, 68)
+                    pill(nx0, yo + 40, nx0 + 30, yo + 68, solid, edge)
+                    notes_icon(nx0 + 15, yo + 54, white)
+                    self._buttons["notes"] = (nx0, yo + 40, nx0 + 30, yo + 68)
                     la_x0 = nx0 + 30 + 6
             # Live Assist session toggle: same visual language as the
             # meeting-record dot above (outline ring + colored center dot),
             # but violet instead of red so it reads as a distinct control.
             if la_x0 + 30 <= cw - 4:
-                pill(la_x0, 40, la_x0 + 30, 68, solid, edge)
-                circle(la_x0 + 15, 54, 10, outline=(255, 255, 255, 190), width=round(2 * u))
-                circle(la_x0 + 15, 54, 4, fill=(167, 139, 250, 255) if self._live_assist_active else white)
-                self._buttons["live_assist"] = (la_x0, 40, la_x0 + 30, 68)
+                pill(la_x0, yo + 40, la_x0 + 30, yo + 68, solid, edge)
+                circle(la_x0 + 15, yo + 54, 10, outline=(255, 255, 255, 190), width=round(2 * u))
+                circle(la_x0 + 15, yo + 54, 4, fill=(167, 139, 250, 255) if self._live_assist_active else white)
+                self._buttons["live_assist"] = (la_x0, yo + 40, la_x0 + 30, yo + 68)
         elif mode == "recording":
             pill(0, 0, cw, ch, solid, edge)
             cy = ch / 2
@@ -475,18 +465,8 @@ class OverlayWindow:
         excluding it) on older builds. Returns "excluded" | "blacked_out" |
         "unsupported" so the actual result can be recorded per machine
         instead of assumed."""
-        if not self._hwnd:
-            return "unsupported"
-        if _user32.SetWindowDisplayAffinity(ctypes.c_void_p(self._hwnd), WDA_EXCLUDEFROMCAPTURE):
-            self._capture_affinity = "excluded"
-            return "excluded"
-        logger.warning("WDA_EXCLUDEFROMCAPTURE unavailable; falling back to WDA_MONITOR")
-        if _user32.SetWindowDisplayAffinity(ctypes.c_void_p(self._hwnd), WDA_MONITOR):
-            self._capture_affinity = "blacked_out"
-            return "blacked_out"
-        logger.warning("SetWindowDisplayAffinity unsupported; overlay will be visible in captures")
-        self._capture_affinity = "unsupported"
-        return "unsupported"
+        self._capture_affinity = exclude_hwnd_from_capture(self._hwnd)
+        return self._capture_affinity
 
     def toggle_panic_hide(self) -> bool:
         """Hides/shows the pill unconditionally, independent of mode/state
@@ -517,6 +497,10 @@ class OverlayWindow:
 
     def set_live_assist_active(self, active: bool) -> None:
         self._live_assist_active = active
+        self._poke()
+
+    def set_assistant_name(self, name: str) -> None:
+        self._assistant_name = name
         self._poke()
 
     def set_hotkey_hint(self, text: str) -> None:

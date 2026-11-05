@@ -10,7 +10,7 @@ import pytest
 
 from talkflow.asr.base import FinalResult, PartialResult
 from talkflow.features.liveassist import store as store_module
-from talkflow.features.liveassist.orchestrator import LiveAssistOrchestrator
+from talkflow.features.liveassist.orchestrator import _HARD_CAP_FRAMES, LiveAssistOrchestrator
 from talkflow.features.liveassist.session import LiveAssistState
 from talkflow.history import db as db_module
 
@@ -45,6 +45,10 @@ class FakeAsr:
         self.finals: dict[str, list[FinalResult]] = {"me": [], "they": []}
         self.partials: dict[str, PartialResult | None] = {"me": None, "they": None}
         self.fail_finalize_for: set[str] = set()
+        self.close_calls = 0
+
+    def close(self):
+        self.close_calls += 1
 
     def start_source(self, source_id, allowed_languages):
         self.started_sources.append(source_id)
@@ -268,3 +272,175 @@ def test_stop_finalizes_both_sources_and_one_failure_does_not_drop_the_other(tmp
     assert len(rows) == 1
     assert rows[0]["source"] == "they"
     assert rows[0]["text"] == "still captured"
+
+
+def test_start_rebuilds_the_recorder_each_session_when_none_was_injected(tmp_db, monkeypatch):
+    """Confirmed live: a changed live_assist_system_audio_process_name
+    setting never took effect until the whole app was restarted, because
+    the production TwoSourceRecorder() was built once at orchestrator
+    construction and reused forever. start() must build a fresh one each
+    session instead - but only in production (recorder=None); tests that
+    inject a FakeRecorder must keep using that exact instance."""
+    built = []
+
+    class _FakeTwoSourceRecorder:
+        def __init__(self):
+            built.append(self)
+            self.started = False
+
+        def start(self, on_frame):
+            self.started = True
+
+        def stop(self):
+            pass
+
+    import talkflow.features.liveassist.orchestrator as orch_module
+    monkeypatch.setattr(orch_module, "TwoSourceRecorder", _FakeTwoSourceRecorder)
+
+    orch = LiveAssistOrchestrator(asr=FakeAsr(), allowed_languages=["en"], recorder=None)
+    assert built == []  # not built until the first start() - construction touches no devices
+
+    orch.start()
+    first_session_recorder = orch._recorder
+    assert first_session_recorder is built[0]
+    orch.stop()
+
+    orch.start()
+    second_session_recorder = orch._recorder
+    assert second_session_recorder is built[1]
+    assert second_session_recorder is not first_session_recorder
+
+
+def test_hard_cap_finalizes_a_source_the_vad_never_flags_as_speech(tmp_db):
+    """Confirmed live: a source whose audio never once trips webrtcvad's
+    is_speech() (plausible for system/music audio, or long quiet stretches)
+    never reaches ChunkBoundaryDetector's own safety net either - both of
+    its boundary conditions require _heard_speech_since_boundary, which
+    silence never sets - so its sherpa-onnx stream never finalized and grew
+    unbounded for the rest of the session (22GB+ RAM, climbing CPU). This
+    hard cap must finalize it regardless."""
+    asr = FakeAsr()
+    recorder = FakeRecorder()
+    orch = _new_orchestrator(asr=asr, recorder=recorder)
+    orch.start()
+
+    silent_frame = b"\x00" * 960  # 30ms of digital silence - never "speech"
+    for _ in range(_HARD_CAP_FRAMES):
+        recorder.on_frame("me", silent_frame)
+
+    assert "me" in asr.finalize_calls
+    assert orch._frames_since_finalize["me"] == 0  # reset after the forced finalize
+
+
+def test_paused_session_drops_frames_and_does_not_forward_or_bill(tmp_db):
+    """Confirmed as a real bug by review: pause() only changed session state -
+    _on_frame() kept calling feed_source_chunk/finalize_source the whole time
+    a session was "paused", so a paused session kept streaming audio to the
+    ASR adapter (and, for a billed provider, kept being charged)."""
+    asr = FakeAsr()
+    recorder = FakeRecorder()
+    orch = _new_orchestrator(asr=asr, recorder=recorder)
+    orch.start()
+    orch.pause()
+
+    asr.partials["me"] = PartialResult(text="should never be consumed", detected_language=None)
+    recorder.on_frame("me", b"\x00" * 960)
+
+    assert asr.finalize_calls == []
+    # feed_source_chunk was never called while paused, so the scripted
+    # partial is still sitting there unconsumed.
+    assert asr.partials["me"] is not None
+
+
+def test_resume_restores_frame_forwarding(tmp_db):
+    asr = FakeAsr()
+    recorder = FakeRecorder()
+    orch = _new_orchestrator(asr=asr, recorder=recorder)
+    orch.start()
+    orch.pause()
+    recorder.on_frame("me", b"\x00" * 960)  # dropped while paused
+
+    orch.resume()
+    asr.finals["me"] = [FinalResult(text="hello", detected_language=None, detected_language_confidence=None)]
+    for _ in range(_HARD_CAP_FRAMES):
+        recorder.on_frame("me", b"\x00" * 960)
+
+    assert "me" in asr.finalize_calls
+
+
+def test_start_resets_vad_and_sequence_state_between_sessions(tmp_db):
+    asr = FakeAsr()
+    recorder = FakeRecorder()
+    orch = _new_orchestrator(asr=asr, recorder=recorder)
+    orch.start()
+    asr.finals["me"] = [FinalResult(text="first session", detected_language=None, detected_language_confidence=None)]
+    orch._finalize_source("me")
+    assert orch._sequence["me"] == 1
+    orch.stop()
+
+    orch.start()  # second session on the SAME orchestrator instance
+
+    assert orch._sequence["me"] == 0
+    assert orch._frames_since_finalize["me"] == 0
+
+
+def test_start_surfaces_as_error_when_recorder_construction_fails(tmp_db):
+    """capture.py's _resolve_output_loopback fails loud on an explicit,
+    invalid device override rather than silently substituting a different
+    device - the orchestrator must turn that into a visible ERROR state,
+    not an unhandled exception out of whatever thread called start()."""
+    class _FailingRecorder:
+        def __init__(self):
+            raise ValueError("configured output device not found")
+
+    # Bypass the injected-recorder path (which would skip construction) by
+    # monkeypatching the module-level TwoSourceRecorder the orchestrator
+    # falls back to building itself when none was injected.
+    import talkflow.features.liveassist.orchestrator as orch_module
+    orig = orch_module.TwoSourceRecorder
+    orch_module.TwoSourceRecorder = _FailingRecorder
+    try:
+        orch = LiveAssistOrchestrator(asr=FakeAsr(), allowed_languages=["en"], recorder=None)
+        orch.start()
+    finally:
+        orch_module.TwoSourceRecorder = orig
+
+    assert orch.state == LiveAssistState.ERROR
+
+
+def test_stop_closes_asr_adapter_even_when_a_finalize_call_raises(tmp_db):
+    asr = FakeAsr()
+    asr.fail_finalize_for.add("me")
+    orch = _new_orchestrator(asr=asr)
+    orch.start()
+
+    orch.stop()
+
+    assert asr.close_calls == 1
+
+
+def test_start_rebuilds_asr_via_factory_each_session_when_none_injected(tmp_db, monkeypatch):
+    """Mirrors test_start_rebuilds_the_recorder_each_session_when_none_was_injected
+    - the orchestrator itself is cached long-lived in app.py, so clearing a
+    module-level adapter cache alone can't reach it; the orchestrator must
+    pull a fresh adapter from a factory every session instead."""
+    built = []
+
+    def factory():
+        asr = FakeAsr()
+        built.append(asr)
+        return asr
+
+    orch = LiveAssistOrchestrator(asr_factory=factory, allowed_languages=["en"], recorder=FakeRecorder())
+    assert built == []  # not built until the first start() - construction touches no devices/network
+
+    orch.start()
+    first = orch.asr
+    assert first is built[0]
+    orch.stop()
+    assert first.close_calls == 1
+
+    orch.start()
+    second = orch.asr
+    assert second is built[1]
+    assert second is not first

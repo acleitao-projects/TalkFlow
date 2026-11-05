@@ -48,6 +48,82 @@ def test_rewrite_request_shape_and_response_parsing():
     assert b"some rough text" in captured["body"]
 
 
+def test_suggest_grounds_prompt_in_transcript_and_parses_response():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = request.read()
+        return httpx.Response(200, json={"choices": [{"message": {"content": "Sounds good, let's do Friday."}}]})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    adapter = OpenAiCompatibleAdapter(base_url="https://ollama.com", model_id="qwen3.5:cloud", api_key="k", client=client)
+    result = adapter.suggest(
+        transcript_lines=[("they", "Can we ship this Friday?"), ("me", "I think so")],
+        assistant_name="General Assistant", assistant_task="Help close the deal",
+        assistant_style="Friendly and brief", language="en",
+    )
+    assert result.has_suggestion is True
+    assert result.suggestion_text == "Sounds good, let's do Friday."
+    assert b"Can we ship this Friday?" in captured["body"]
+    assert b"Help close the deal" in captured["body"]
+
+
+def test_suggest_custom_system_prompt_overrides_task_and_style_fields():
+    """A custom_system_prompt (e.g. a ported Perssua ROLE/TASK/STYLE persona)
+    must fully replace the generic task/style template, while the transcript
+    grounding and no-suggestion escape hatch still get appended - confirmed
+    via build_suggestion_messages' CUSTOM_PROMPT_FOOTER."""
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = request.read()
+        return httpx.Response(200, json={"choices": [{"message": {"content": "A structured PM-style answer."}}]})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    adapter = OpenAiCompatibleAdapter(base_url="https://ollama.com", model_id="m", api_key="k", client=client)
+    result = adapter.suggest(
+        transcript_lines=[("they", "How would you prioritize a roadmap?")],
+        assistant_name="Product Manager Interview", assistant_task="ignored task field",
+        assistant_style="ignored style field", language="en",
+        custom_system_prompt="<SYSTEM_PROMPT><ROLE>You are a PM candidate.</ROLE></SYSTEM_PROMPT>",
+    )
+    assert result.suggestion_text == "A structured PM-style answer."
+    body = captured["body"]
+    assert b"You are a PM candidate" in body
+    assert b"ignored task field" not in body
+    assert b"ignored style field" not in body
+    assert b"How would you prioritize a roadmap" in body  # transcript grounding still present
+
+
+def test_suggest_sends_a_generous_max_tokens_cap():
+    """Confirmed live: some OpenAI-compatible hosts default to a short
+    response length when max_tokens is omitted, silently truncating real
+    answers - one of two causes behind the "answers get cut off" bug
+    (the other being the overlay's own fixed suggestion-strip height)."""
+    import json as json_module
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json_module.loads(request.read())
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    adapter = OpenAiCompatibleAdapter(base_url="https://ollama.com", model_id="m", api_key="k", client=client)
+    adapter.suggest([], "General Assistant", "help", "brief", "en")
+    assert captured["body"]["max_tokens"] >= 500
+
+
+def test_suggest_no_suggestion_marker_is_a_real_empty_result_not_fabricated_text():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": "NO_SUGGESTION"}}]})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    adapter = OpenAiCompatibleAdapter(base_url="https://ollama.com", model_id="m", api_key=None, client=client)
+    result = adapter.suggest([], "General Assistant", "help", "brief", "en")
+    assert result.has_suggestion is False
+    assert result.suggestion_text == ""
+
+
 def test_no_api_key_omits_auth_header():
     def handler(request: httpx.Request) -> httpx.Response:
         assert "authorization" not in request.headers

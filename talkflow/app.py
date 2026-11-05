@@ -35,9 +35,13 @@ from talkflow.capture.hotkey import HotkeyController
 from talkflow.config.paths import log_dir
 from talkflow.config.settings import Settings
 from talkflow.features.command_mode.engine import CommandModeEngine
+from talkflow.features.liveassist import assistants as liveassist_assistants
+from talkflow.features.liveassist.batch_asr import TwoSourceBatchAsrAdapter
 from talkflow.features.liveassist.multi_stream_asr import MultiStreamAsrAdapter
+from talkflow.features.liveassist.realtime_asr import TwoSourceRealtimeAsrAdapter
 from talkflow.features.liveassist.orchestrator import LiveAssistOrchestrator
 from talkflow.features.liveassist.session import LiveAssistState
+from talkflow.features.liveassist.suggestion_engine import SuggestionEngine
 from talkflow.features.notetaker.capture import MeetingRecorder
 from talkflow.features.notetaker.pipeline import process_meeting
 from talkflow.features.transforms.engine import TransformsEngine
@@ -47,6 +51,7 @@ from talkflow.history.db import init_db
 from talkflow.insertion.insertion_service import InsertionService
 from talkflow.llm.openai_compatible_adapter import OpenAiCompatibleAdapter
 from talkflow.mainwindow.main_window import MainWindow
+from talkflow.overlay.live_assist_overlay_window import LiveAssistOverlayWindow
 from talkflow.overlay.overlay_window import OverlayWindow
 from talkflow.pipeline.orchestrator import Orchestrator
 from talkflow.registry import secrets as secret_store
@@ -114,6 +119,18 @@ def build_llm_adapter() -> OpenAiCompatibleAdapter:
     )
 
 
+def build_live_suggestion_llm() -> OpenAiCompatibleAdapter:
+    # "live_suggestion" is its own registry stage (LA-09), independently
+    # swappable from plain dictation's "cleanup" stage - falls back to
+    # "cleanup"'s assignment when none is configured, so this works out of
+    # the box without requiring a separate registry entry first.
+    assignment = registry_store.get_active("live_suggestion") or registry_store.get_active("cleanup")
+    if assignment is None:
+        raise RuntimeError("Model registry missing active live_suggestion/cleanup assignment")
+    api_key = secret_store.get_api_key(assignment.api_key_ref) if assignment.api_key_ref else None
+    return OpenAiCompatibleAdapter(base_url=assignment.base_url, model_id=assignment.model_id, api_key=api_key)
+
+
 def build_orchestrator(overlay: OverlayWindow, llm: OpenAiCompatibleAdapter, insertion: InsertionService) -> Orchestrator:
     settings = Settings.load()
     asr = build_asr_adapter()
@@ -167,6 +184,33 @@ def main() -> None:
     main_window.api.floating_notes = floating_notes
     overlay.on_notes_click = floating_notes.toggle
     overlay.set_flow_bar_enabled(settings.scratchpad_in_pill)
+
+    def _active_assistant_name() -> str:
+        active_id = Settings.load().live_assist_active_assistant_id
+        a = liveassist_assistants.get_assistant(active_id) if active_id else None
+        if a:
+            return a.name
+        all_assistants = liveassist_assistants.list_assistants()
+        return all_assistants[0].name if all_assistants else "Assistant"
+
+    def cycle_assistant() -> None:
+        all_assistants = liveassist_assistants.list_assistants()
+        if not all_assistants:
+            return
+        current_id = Settings.load().live_assist_active_assistant_id
+        ids = [a.id for a in all_assistants]
+        try:
+            next_index = (ids.index(current_id) + 1) % len(ids)
+        except ValueError:
+            next_index = 0
+        s = Settings.load()
+        s.live_assist_active_assistant_id = ids[next_index]
+        s.save()
+        overlay.set_assistant_name(all_assistants[next_index].name)
+
+    overlay.on_assistant_cycle_click = cycle_assistant
+    overlay.on_open_assistants_click = lambda: main_window.show_tab("assistants")
+    overlay.set_assistant_name(_active_assistant_name())
 
     shared_llm = build_llm_adapter()
     shared_insertion = InsertionService(prefer_ui_automation=False)
@@ -367,6 +411,8 @@ def main() -> None:
         command_hotkey.stop()
         panic_hide_hotkey.stop()
         live_assist_hotkey.stop()
+        live_assist_ask_hotkey.stop()
+        live_assist_capture_hotkey.stop()
         webview.windows[:] and [w.destroy() for w in list(webview.windows)]
 
     # Notetaker: toggled from the tray menu (continuous background recording,
@@ -405,31 +451,99 @@ def main() -> None:
     # session skeleton. Controlled from the pill - the only overlay surface
     # this app has - not a tray entry, mirroring how the meeting toggle
     # above is wired.
-    live_assist_state: dict = {"orchestrator": None, "asr": None}
+    live_assist_state: dict = {"orchestrator": None}
+    live_assist_overlay = LiveAssistOverlayWindow()
+    live_assist_overlay.create()
 
-    def get_live_assist_asr() -> MultiStreamAsrAdapter:
-        if live_assist_state["asr"] is None:
-            asr_assignment = registry_store.get_active("asr")
-            if asr_assignment is None or asr_assignment.provider != "nemotron-local":
-                raise RuntimeError(
-                    "Live Assist currently requires the nemotron-local ASR provider active "
-                    "in the Model Registry (multi-stream support isn't built for other providers yet)")
-            live_assist_state["asr"] = MultiStreamAsrAdapter(model_dir=asr_assignment.base_url)
-        return live_assist_state["asr"]
+    def get_live_assist_asr():
+        """Factory, not a cache - called fresh by LiveAssistOrchestrator.start()
+        on every session (see orchestrator.py's asr_factory=). Confirmed as a
+        real bug: caching the built adapter in live_assist_state used to mean
+        the orchestrator (itself cached for the process's lifetime) held one
+        `self.asr` forever - clearing a module-level cache alone never
+        reached it, so a changed live_assist_asr registry row, or the
+        realtime adapter's stale WebSocket state from a previous session,
+        never actually went away until the whole app restarted.
+        The one exception: nemotron-local's sherpa-onnx model load is
+        genuinely expensive (~2-3s) and has no per-connection state that can
+        go stale between sessions (every start_source() call already gets a
+        brand new stream object), so that one case still caches the loaded
+        recognizer across sessions - keyed on the registry assignment, so a
+        changed assignment still rebuilds it.
+        """
+        # "live_assist_asr" is its own registry stage so Live Assist's ASR
+        # can be swapped independently of plain dictation's "asr" stage
+        # (e.g. keep dictation on local Nemotron but point Live Assist at
+        # a cloud API because the local model is too slow for two
+        # concurrent streams on this GPU). Falls back to the "asr" stage
+        # when no live_assist_asr row has been configured, so existing
+        # setups keep working unchanged.
+        asr_assignment = registry_store.get_active("live_assist_asr") or registry_store.get_active("asr")
+        if asr_assignment is None:
+            raise RuntimeError("Model registry missing active asr/live_assist_asr assignment")
+        if asr_assignment.provider == "nemotron-local":
+            cache_key = (asr_assignment.provider, asr_assignment.base_url)
+            if live_assist_state.get("nemotron_asr_key") != cache_key:
+                # num_threads=2 (not the single-stream adapter's default of 4):
+                # two sources decode concurrently here, each requesting its own
+                # intra-op thread pool - at 4 each that's up to 8 compute
+                # threads fighting for cores, which measured live as CPU
+                # pegged at ~83% and made the whole machine feel unusable.
+                # 2+2=4 matches the single-session dictation adapter's original
+                # total footprint.
+                live_assist_state["nemotron_asr"] = MultiStreamAsrAdapter(
+                    model_dir=asr_assignment.base_url, num_threads=2)
+                live_assist_state["nemotron_asr_key"] = cache_key
+            return live_assist_state["nemotron_asr"]
+        if asr_assignment.provider == "openai-realtime":
+            # True streaming via OpenAI's Realtime transcription API - real
+            # interim text as you speak, not batch_asr.py's "buffer until a
+            # chunk closes, then one HTTP POST". Confirmed live in the
+            # reference app Persua's own decompiled code (see
+            # realtime_asr.py's docstring) that this is also how to keep it
+            # cheap: the adapter's noise gate means silence is never
+            # appended to the socket, so it's never billed either - without
+            # that, a persistent connection streams (and bills for) dead air
+            # for the whole session.
+            asr_api_key = (secret_store.get_api_key(asr_assignment.api_key_ref)
+                           if asr_assignment.api_key_ref else None)
+            if not asr_api_key:
+                raise RuntimeError("live_assist_asr provider is openai-realtime but no API key is stored")
+            return TwoSourceRealtimeAsrAdapter(
+                api_key=asr_api_key, model=asr_assignment.model_id or "gpt-live-transcribe",
+            )
+        # Any OpenAI-compatible batch transcription host (OpenAI's own API
+        # included - base_url="https://api.openai.com", model_id="whisper-1"
+        # or "gpt-4o-transcribe") works here via the same WhisperHttpAdapter
+        # plain dictation already uses, just wrapped per-source since this
+        # needs two independent streams at once. No live interim text with
+        # this path - see batch_asr.py's docstring - but far faster than
+        # local Nemotron on underpowered hardware.
+        asr_api_key = (secret_store.get_api_key(asr_assignment.api_key_ref)
+                       if asr_assignment.api_key_ref else None)
+        return TwoSourceBatchAsrAdapter(
+            base_url=asr_assignment.base_url, model_id=asr_assignment.model_id, api_key=asr_api_key,
+        )
 
     def on_live_assist_state_change(session) -> None:
         overlay.set_live_assist_active(session.state in (
             LiveAssistState.ARMING, LiveAssistState.ACTIVE, LiveAssistState.PAUSED))
+        live_assist_overlay.set_session_state(session.state)
+        if session.state == LiveAssistState.ARMING:
+            live_assist_overlay.show()
+        elif session.state in (LiveAssistState.ENDED, LiveAssistState.ERROR):
+            live_assist_overlay.hide()
 
     def on_live_assist_utterance(source_id: str, text: str, is_final: bool) -> None:
         logger.info("live assist utterance: source=%s final=%s text=%r", source_id, is_final, text)
+        live_assist_overlay.append_utterance(source_id, text, is_final)
 
     def toggle_live_assist() -> None:
         orch = live_assist_state["orchestrator"]
         if orch is None:
             try:
                 orch = LiveAssistOrchestrator(
-                    asr=get_live_assist_asr(), allowed_languages=settings.language_allowlist,
+                    asr_factory=get_live_assist_asr, allowed_languages=settings.language_allowlist,
                     on_state_change=on_live_assist_state_change, on_utterance=on_live_assist_utterance,
                 )
             except Exception:
@@ -448,6 +562,55 @@ def main() -> None:
         on_start=toggle_live_assist, on_stop=lambda: None,
     )
     live_assist_hotkey.start()
+
+    # LA-09: live suggestion engine - lazily built on first ask, same
+    # cached-singleton pattern as live_assist_state["asr"].
+    live_assist_suggestion_state: dict = {"engine": None}
+
+    def get_suggestion_engine() -> SuggestionEngine:
+        if live_assist_suggestion_state["engine"] is None:
+            llm = build_live_suggestion_llm()
+            live_assist_suggestion_state["engine"] = SuggestionEngine(
+                llm, on_result=lambda text, has_suggestion: live_assist_overlay.set_suggestion(text, has_suggestion),
+            )
+        return live_assist_suggestion_state["engine"]
+
+    def trigger_live_assist_ask() -> None:
+        orch = live_assist_state["orchestrator"]
+        if orch is None or orch.state not in (LiveAssistState.ACTIVE, LiveAssistState.PAUSED):
+            logger.info("Live Assist: ask hotkey pressed with no active session - ignored")
+            return
+        try:
+            engine = get_suggestion_engine()
+        except Exception:
+            logger.exception("Could not build the live suggestion engine")
+            return
+        live_assist_overlay.set_suggestion_pending()
+        settings_now = Settings.load()
+        language = settings_now.language_allowlist[0] if settings_now.language_allowlist else "en"
+        engine.request(
+            session_id=orch._session.id, assistant_id=settings_now.live_assist_active_assistant_id,
+            language=language,
+        )
+
+    live_assist_ask_hotkey = HotkeyController(
+        hotkey_spec=settings.live_assist_ask_hotkey, mode="toggle",
+        on_start=trigger_live_assist_ask, on_stop=lambda: None,
+    )
+    live_assist_ask_hotkey.start()
+
+    def trigger_live_assist_capture() -> None:
+        # LA-10/LA-11 (screen capture + vision answer) aren't built yet -
+        # this hotkey is wired per LA-07's acceptance ("four new bindings...
+        # fire correctly") but intentionally a no-op stub until then, not a
+        # silent failure disguised as success.
+        logger.info("Live Assist: capture hotkey pressed - screen capture (LA-10) isn't implemented yet")
+
+    live_assist_capture_hotkey = HotkeyController(
+        hotkey_spec=settings.live_assist_capture_hotkey, mode="toggle",
+        on_start=trigger_live_assist_capture, on_stop=lambda: None,
+    )
+    live_assist_capture_hotkey.start()
 
     tray = TrayIcon(
         on_open_main=open_main_window, on_quit=quit_app,

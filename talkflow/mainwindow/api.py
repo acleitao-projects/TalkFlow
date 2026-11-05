@@ -10,6 +10,7 @@ from talkflow.config import autostart
 from talkflow.config.settings import Settings
 from talkflow.features.dictionary import store as dictionary_store
 from talkflow.features.dictionary.learn import learn_from_correction
+from talkflow.features.liveassist import assistants as liveassist_assistants
 from talkflow.features.insights import store as insights_store
 from talkflow.features.notetaker import pipeline as notetaker_pipeline
 from talkflow.features.scratchpad import store as scratchpad_store
@@ -39,6 +40,8 @@ class Api:
         s.save()
         if "launch_at_login" in data:
             autostart.set_enabled(s.launch_at_login)
+        if "exclude_main_window_from_capture" in data and self.main_window:
+            self.main_window.set_capture_excluded(s.exclude_main_window_from_capture)
         return asdict(s)
 
     def list_input_devices(self) -> list[dict]:
@@ -48,6 +51,30 @@ class Api:
             for i, d in enumerate(sd.query_devices())
             if d["max_input_channels"] > 0
         ]
+
+    def list_liveassist_mic_devices(self) -> list[dict]:
+        try:
+            import soundcard as sc
+            return [{"name": m.name} for m in sc.all_microphones(include_loopback=False)]
+        except Exception:
+            return []
+
+    def list_liveassist_speaker_devices(self) -> list[dict]:
+        try:
+            import soundcard as sc
+            return [{"name": s.name} for s in sc.all_speakers()]
+        except Exception:
+            return []
+
+    def list_audio_processes(self) -> list[dict]:
+        """Candidate apps for Live Assist's per-process system-audio capture
+        (see capture.py). Empty list (not an error) on an unsupported OS
+        build or when the feature just has nothing to report right now."""
+        try:
+            import flexaudio
+            return [{"pid": p.pid, "name": p.name, "executable": p.executable} for p in flexaudio.processes()]
+        except Exception:
+            return []
 
     # --- History ---
     def list_history(self, limit: int = 50) -> list[dict]:
@@ -234,14 +261,59 @@ class Api:
         return [asdict(t) for t in transform_store.list_custom_transforms()]
 
     def create_custom_transform(self, name: str, instruction: str, hotkey: str | None = None) -> dict:
+        if hotkey:
+            conflict = Settings.load().conflicting_hotkey(changing_key="__new_transform__", new_spec=hotkey)
+            if conflict:
+                return {"ok": False, "error": f"That hotkey is already used by {conflict}"}
         try:
             t = transform_store.create_custom_transform(name, instruction, hotkey or None)
             return {"ok": True, **asdict(t)}
         except ValueError as e:
             return {"ok": False, "error": str(e)}
 
+    def check_hotkey_conflict(self, changing_key: str, spec: str) -> dict:
+        """LA-07: surface a clear conflict instead of silently letting a new
+        binding overwrite an existing one that uses the same combo."""
+        conflict = Settings.load().conflicting_hotkey(changing_key, spec)
+        return {"conflict": conflict}
+
     def delete_custom_transform(self, transform_id: str) -> dict:
         transform_store.delete_custom_transform(transform_id)
+        return {"ok": True}
+
+    # --- Live Assist: assistants (LA-08) ---
+    def list_assistants(self) -> list[dict]:
+        return [asdict(a) for a in liveassist_assistants.list_assistants()]
+
+    def create_assistant(self, name: str, task: str, response_style: str,
+                          custom_system_prompt: str | None = None) -> dict:
+        if not name.strip() or not task.strip():
+            return {"ok": False, "error": "name and task are required"}
+        a = liveassist_assistants.create_assistant(name, task, response_style, custom_system_prompt)
+        return {"ok": True, **asdict(a)}
+
+    def update_assistant(self, assistant_id: str, name: str, task: str, response_style: str,
+                          custom_system_prompt: str | None = None) -> dict:
+        try:
+            a = liveassist_assistants.update_assistant(assistant_id, name, task, response_style, custom_system_prompt)
+            return {"ok": True, **asdict(a)}
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+
+    def delete_assistant(self, assistant_id: str) -> dict:
+        try:
+            liveassist_assistants.delete_assistant(assistant_id)
+            return {"ok": True}
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+
+    def get_active_assistant_id(self) -> str | None:
+        return Settings.load().live_assist_active_assistant_id
+
+    def set_active_assistant(self, assistant_id: str | None) -> dict:
+        s = Settings.load()
+        s.live_assist_active_assistant_id = assistant_id
+        s.save()
         return {"ok": True}
 
     # --- Notetaker ---
@@ -288,10 +360,18 @@ class Api:
         same "don't break dictation with a bad key" principle as
         scripts/setup_cloud_only.py, exposed here so the UI can do it too."""
         try:
-            if stage == "asr":
+            if stage in ("asr", "live_assist_asr"):
                 if provider == "nemotron-local":
                     from talkflow.asr.nemotron_sherpa_adapter import NemotronSherpaAdapter
                     NemotronSherpaAdapter(model_dir=base_url)  # raises if the model files are missing/invalid
+                elif provider == "openai-realtime":
+                    # Different transport (WebSocket, not REST) - just prove
+                    # the key/connection works, same "don't break Live Assist
+                    # with a bad key" principle as the REST path below.
+                    from talkflow.features.liveassist.realtime_asr import TwoSourceRealtimeAsrAdapter
+                    adapter = TwoSourceRealtimeAsrAdapter(api_key=api_key, model=model_id or "gpt-live-transcribe")
+                    adapter.start_source("test", ["en"])
+                    adapter.close()
                 else:
                     from talkflow.asr.whisper_http_adapter import WhisperHttpAdapter
                     adapter = WhisperHttpAdapter(base_url, model_id, api_key, timeout=30.0)
