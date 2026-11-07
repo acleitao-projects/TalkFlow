@@ -395,9 +395,15 @@ def main() -> None:
     # Panic-hide: an always-reliable fallback to exclude_from_capture(),
     # since SetWindowDisplayAffinity isn't guaranteed on every OS build/
     # capture method. Toggle mode: one tap hides, another tap shows again.
+    # toggle_panic_hide() already decides hide-vs-show itself (flips its own
+    # _panic_hidden flag), so - same bug/fix as live_assist_hotkey above -
+    # it doesn't need HotkeyController's own toggle bookkeeping on top of
+    # that; without the reset, only every OTHER press actually hid/showed
+    # the pill, with the no-op on_stop silently swallowing the others.
     panic_hide_hotkey = HotkeyController(
         hotkey_spec=settings.panic_hide_hotkey, mode="toggle",
-        on_start=lambda: overlay.toggle_panic_hide(), on_stop=lambda: None,
+        on_start=lambda: (overlay.toggle_panic_hide(), panic_hide_hotkey.reset()),
+        on_stop=lambda: None,
     )
     panic_hide_hotkey.start()
 
@@ -456,6 +462,7 @@ def main() -> None:
     live_assist_state: dict = {"orchestrator": None}
     live_assist_overlay = LiveAssistOverlayWindow()
     live_assist_overlay.create()
+    main_window.api.live_assist_overlay = live_assist_overlay
 
     def get_live_assist_asr():
         """Factory, not a cache - called fresh by LiveAssistOrchestrator.start()
@@ -581,9 +588,37 @@ def main() -> None:
 
     overlay.on_live_assist_click = toggle_live_assist
 
+    def live_assist_pause_resume() -> None:
+        orch = live_assist_state["orchestrator"]
+        if orch is None:
+            return
+        if orch.state == LiveAssistState.PAUSED:
+            orch.resume()
+        elif orch.state == LiveAssistState.ACTIVE:
+            orch.pause()
+
+    def live_assist_stop() -> None:
+        orch = live_assist_state["orchestrator"]
+        if orch is not None:
+            orch.stop()
+
+    live_assist_overlay.on_pause_resume_click = live_assist_pause_resume
+    live_assist_overlay.on_stop_click = live_assist_stop
+
     live_assist_hotkey = HotkeyController(
         hotkey_spec=settings.live_assist_hotkey, mode="toggle",
-        on_start=toggle_live_assist, on_stop=lambda: None,
+        # toggle_live_assist() already decides start-vs-stop itself (from
+        # live_assist_state), so it doesn't need HotkeyController's own
+        # toggle bookkeeping on top - on_stop was a no-op, which meant
+        # _active stayed stuck "on" after every press, so only every OTHER
+        # press actually reached toggle_live_assist() (the no-op on_stop
+        # fired on the others). Resetting right after every press makes
+        # every single press call toggle_live_assist() fresh, which is
+        # exactly what the pill's own click handler already does (same
+        # function, no such bug there - it's not filtered through
+        # HotkeyController at all).
+        on_start=lambda: (toggle_live_assist(), live_assist_hotkey.reset()),
+        on_stop=lambda: None,
     )
     live_assist_hotkey.start()
 
@@ -600,22 +635,33 @@ def main() -> None:
         return live_assist_suggestion_state["engine"]
 
     def trigger_live_assist_ask() -> None:
-        orch = live_assist_state["orchestrator"]
-        if orch is None or orch.state not in (LiveAssistState.ACTIVE, LiveAssistState.PAUSED):
-            logger.info("Live Assist: ask hotkey pressed with no active session - ignored")
-            return
+        # Ask is a one-shot action, not a real start/stop toggle, but
+        # HotkeyController only has "hold"/"toggle" modes - "toggle" with a
+        # no-op on_stop meant every press alternated between actually
+        # firing (on_start) and silently doing nothing (on_stop), i.e. it
+        # took two presses to get one suggestion request. Resetting right
+        # after every press, on every exit path (including "no active
+        # session"), makes HotkeyController treat every press as a fresh
+        # "first" press, so every tap fires.
         try:
-            engine = get_suggestion_engine()
-        except Exception:
-            logger.exception("Could not build the live suggestion engine")
-            return
-        live_assist_overlay.set_suggestion_pending()
-        settings_now = Settings.load()
-        language = settings_now.language_allowlist[0] if settings_now.language_allowlist else "en"
-        engine.request(
-            session_id=orch._session.id, assistant_id=settings_now.live_assist_active_assistant_id,
-            language=language,
-        )
+            orch = live_assist_state["orchestrator"]
+            if orch is None or orch.state not in (LiveAssistState.ACTIVE, LiveAssistState.PAUSED):
+                logger.info("Live Assist: ask hotkey pressed with no active session - ignored")
+                return
+            try:
+                engine = get_suggestion_engine()
+            except Exception:
+                logger.exception("Could not build the live suggestion engine")
+                return
+            live_assist_overlay.set_suggestion_pending()
+            settings_now = Settings.load()
+            language = settings_now.language_allowlist[0] if settings_now.language_allowlist else "en"
+            engine.request(
+                session_id=orch._session.id, assistant_id=settings_now.live_assist_active_assistant_id,
+                language=language,
+            )
+        finally:
+            live_assist_ask_hotkey.reset()
 
     live_assist_ask_hotkey = HotkeyController(
         hotkey_spec=settings.live_assist_ask_hotkey, mode="toggle",
@@ -629,6 +675,9 @@ def main() -> None:
         # fire correctly") but intentionally a no-op stub until then, not a
         # silent failure disguised as success.
         logger.info("Live Assist: capture hotkey pressed - screen capture (LA-10) isn't implemented yet")
+        # Same one-shot-action-on-"toggle"-mode fix as trigger_live_assist_ask
+        # above - without this, only every other press would even reach here.
+        live_assist_capture_hotkey.reset()
 
     live_assist_capture_hotkey = HotkeyController(
         hotkey_spec=settings.live_assist_capture_hotkey, mode="toggle",

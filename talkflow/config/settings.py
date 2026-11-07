@@ -87,6 +87,21 @@ class Settings:
     # it auto-anchors to the active monitor, same philosophy as the pill.
     live_assist_panel_w: int | None = None
     live_assist_panel_h: int | None = None
+    # Live Assist panel position, persisted only once the user drags it by
+    # its header - None means "auto-anchor to the active monitor's top-right
+    # corner" (the original behavior). Absolute virtual-screen coordinates
+    # (can be negative - a monitor to the left of/above the primary one has
+    # negative coords in Windows' multi-monitor layout), so a position on
+    # any monitor round-trips correctly.
+    live_assist_panel_x: int | None = None
+    live_assist_panel_y: int | None = None
+    # Perssua-style iPhone/iMessage-like chat bubbles instead of plain
+    # flowing transcript text. Follows ui_theme (light/dark) automatically -
+    # no separate theme field, since this panel should always match the
+    # rest of the app rather than have its own independent look.
+    live_assist_bubble_theme: bool = False
+    # Panel background opacity, 15-100 (percent). Lower = more see-through.
+    live_assist_panel_opacity: int = 92
     # LA-08: which live_assist_assistants row the suggestion engine (LA-09)
     # applies. None means "use the builtin General Assistant" - resolved at
     # call time (features/liveassist/assistants.py), not cached here, so a

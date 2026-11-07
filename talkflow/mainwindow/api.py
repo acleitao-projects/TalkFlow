@@ -30,6 +30,7 @@ class Api:
     overlay = None
     floating_notes = None
     main_window = None
+    live_assist_overlay = None
 
     # --- Settings ---
     def get_settings(self) -> dict:
@@ -42,6 +43,10 @@ class Api:
             autostart.set_enabled(s.launch_at_login)
         if "exclude_main_window_from_capture" in data and self.main_window:
             self.main_window.set_capture_excluded(s.exclude_main_window_from_capture)
+        if self.live_assist_overlay and ({"ui_theme", "live_assist_bubble_theme",
+                                           "live_assist_panel_opacity",
+                                           "exclude_main_window_from_capture"} & data.keys()):
+            self.live_assist_overlay.apply_settings(s)
         return asdict(s)
 
     def list_input_devices(self) -> list[dict]:

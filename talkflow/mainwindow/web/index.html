@@ -960,6 +960,18 @@
           <select id="s-liveassist-sysaudio-device" class="w-full px-3 py-2"></select>
           <div class="hotkey-row-sub mt-1" data-i18n="settings.liveassist_sysaudio_device_sub">Loopback a specific playback device instead of a specific app - e.g. a dedicated "Chat" output on an audio interface. Only used when no app is picked above. Takes effect on the next Live Assist session.</div>
         </label>
+        <label class="block">
+          <div class="flex items-center gap-2"><input type="checkbox" id="s-liveassist-bubble" class="w-4 h-4" /> <span data-i18n="settings.liveassist_bubble_label">Live Assist: chat bubble theme</span></div>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.liveassist_bubble_sub">Shows the transcript panel as iMessage-style chat bubbles instead of plain text - follows this app's own light/dark setting. Applies immediately.</div>
+        </label>
+        <label class="block">
+          <div class="font-medium mb-1" data-i18n="settings.liveassist_opacity_label">Live Assist: panel transparency</div>
+          <div class="flex items-center gap-3">
+            <input type="range" id="s-liveassist-opacity" min="15" max="100" step="1" class="w-full" />
+            <span id="s-liveassist-opacity-val" class="text-sm" style="min-width:3em;text-align:right"></span>
+          </div>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.liveassist_opacity_sub">Lower = more see-through. Applies immediately.</div>
+        </label>
         <label class="flex items-center gap-2"><input type="checkbox" id="s-retain-history" class="w-4 h-4" /> <span data-i18n="settings.retain_history">Retain history</span></label>
         <label class="block">
           <div class="flex items-center gap-2"><input type="checkbox" id="s-partial-paste" class="w-4 h-4" /> <span data-i18n="settings.partial_paste_label">Paste while speaking</span></div>
@@ -968,7 +980,7 @@
         <label class="flex items-center gap-2"><input type="checkbox" id="s-launch-at-login" class="w-4 h-4" /> <span data-i18n="settings.launch_at_login">Launch TalkFlow at login</span></label>
         <label class="block">
           <div class="flex items-center gap-2"><input type="checkbox" id="s-hide-from-capture" class="w-4 h-4" /> <span data-i18n="settings.hide_from_capture_label">Hide this window from screen capture</span></div>
-          <div class="hotkey-row-sub mt-1" data-i18n="settings.hide_from_capture_sub">Keeps this window out of Print Screen, screen shares and recordings. Turn off temporarily if you want to screenshot this window yourself - takes effect immediately, no restart needed.</div>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.hide_from_capture_sub">Keeps this window AND the Live Assist panel out of Print Screen, screen shares and recordings. Turn off temporarily if you want to screenshot either yourself - takes effect immediately, no restart needed.</div>
         </label>
         <button onclick="saveSettings()" class="btn btn-primary" data-i18n="settings.save">Save</button>
       </div>
@@ -1170,7 +1182,7 @@ const TRANSLATIONS = {
     'settings.partial_paste_sub': 'Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.',
     'settings.launch_at_login': 'Launch TalkFlow at login',
     'settings.hide_from_capture_label': 'Hide this window from screen capture',
-    'settings.hide_from_capture_sub': 'Keeps this window out of Print Screen, screen shares and recordings. Turn off temporarily if you want to screenshot this window yourself - takes effect immediately, no restart needed.',
+    'settings.hide_from_capture_sub': 'Keeps this window AND the Live Assist panel out of Print Screen, screen shares and recordings. Turn off temporarily if you want to screenshot either yourself - takes effect immediately, no restart needed.',
     'settings.save': 'Save',
     'settings.system_default': 'System default',
     'settings.liveassist_sysaudio_label': 'Live Assist: "THEM" audio source',
@@ -1179,6 +1191,10 @@ const TRANSLATIONS = {
     'settings.liveassist_mic_sub': 'Override which recording device Live Assist uses for your own voice - independent of the regular dictation microphone above. Takes effect on the next Live Assist session.',
     'settings.liveassist_sysaudio_device_label': 'Live Assist: "THEM" output device (alternative to the app picker above)',
     'settings.liveassist_sysaudio_device_sub': 'Loopback a specific playback device instead of a specific app - e.g. a dedicated "Chat" output on an audio interface. Only used when no app is picked above. Takes effect on the next Live Assist session.',
+    'settings.liveassist_bubble_label': 'Live Assist: chat bubble theme',
+    'settings.liveassist_bubble_sub': "Shows the transcript panel as iMessage-style chat bubbles instead of plain text - follows this app's own light/dark setting. Applies immediately.",
+    'settings.liveassist_opacity_label': 'Live Assist: panel transparency',
+    'settings.liveassist_opacity_sub': 'Lower = more see-through. Applies immediately.',
   },
   'pt-BR': {
     'nav.dictation': 'Ditado', 'nav.history': 'Histórico', 'nav.insights': 'Estatísticas',
@@ -1366,7 +1382,7 @@ const TRANSLATIONS = {
     'settings.partial_paste_sub': 'Insere o texto a cada pausa em vez de tudo de uma vez. Cada pedaço é limpo sozinho, então a limpeza fica mais fraca. Não é usado com um atalho de modificador segurado (ex: Ctrl+Shift+D no modo segurar). Reinicie para aplicar.',
     'settings.launch_at_login': 'Abrir o TalkFlow ao fazer login',
     'settings.hide_from_capture_label': 'Ocultar esta janela da captura de tela',
-    'settings.hide_from_capture_sub': 'Mantém esta janela fora do Print Screen, compartilhamentos de tela e gravações. Desative temporariamente se quiser tirar um print desta janela - aplica na hora, sem reiniciar.',
+    'settings.hide_from_capture_sub': 'Mantém esta janela E o painel do Live Assist fora do Print Screen, compartilhamentos de tela e gravações. Desative temporariamente se quiser tirar um print de qualquer um dos dois - aplica na hora, sem reiniciar.',
     'settings.save': 'Salvar',
     'settings.system_default': 'Padrão do sistema',
     'settings.liveassist_sysaudio_label': 'Live Assist: fonte de áudio do "ELES"',
@@ -1375,6 +1391,10 @@ const TRANSLATIONS = {
     'settings.liveassist_mic_sub': 'Sobrepõe qual dispositivo de gravação o Live Assist usa para sua própria voz - independente do microfone de ditado normal acima. Vale a partir da próxima sessão do Live Assist.',
     'settings.liveassist_sysaudio_device_label': 'Live Assist: dispositivo de saída do "ELES" (alternativa ao seletor de app acima)',
     'settings.liveassist_sysaudio_device_sub': 'Captura (loopback) um dispositivo de reprodução específico em vez de um app específico - ex: uma saída dedicada de "Chat" numa interface de áudio. Só é usado quando nenhum app está escolhido acima. Vale a partir da próxima sessão do Live Assist.',
+    'settings.liveassist_bubble_label': 'Live Assist: tema de bolhas de chat',
+    'settings.liveassist_bubble_sub': 'Mostra o painel de transcrição como bolhas de chat estilo iMessage em vez de texto simples - segue o tema claro/escuro do próprio app. Aplica-se imediatamente.',
+    'settings.liveassist_opacity_label': 'Live Assist: transparência do painel',
+    'settings.liveassist_opacity_sub': 'Menor = mais transparente. Aplica-se imediatamente.',
   },
 };
 
@@ -2575,6 +2595,9 @@ async function loadSettings() {
   $('s-partial-paste').checked = s.partial_paste;
   $('s-launch-at-login').checked = s.launch_at_login;
   $('s-hide-from-capture').checked = s.exclude_main_window_from_capture;
+  $('s-liveassist-bubble').checked = s.live_assist_bubble_theme;
+  $('s-liveassist-opacity').value = s.live_assist_panel_opacity;
+  $('s-liveassist-opacity-val').textContent = s.live_assist_panel_opacity + '%';
 
   const devices = await pywebview.api.list_input_devices();
   const sel = $('s-input-device');
@@ -2614,9 +2637,14 @@ async function saveSettings() {
     partial_paste: $('s-partial-paste').checked,
     launch_at_login: $('s-launch-at-login').checked,
     exclude_main_window_from_capture: $('s-hide-from-capture').checked,
+    live_assist_bubble_theme: $('s-liveassist-bubble').checked,
+    live_assist_panel_opacity: parseInt($('s-liveassist-opacity').value, 10),
   });
   loadSettings();
 }
+$('s-liveassist-opacity').addEventListener('input', () => {
+  $('s-liveassist-opacity-val').textContent = $('s-liveassist-opacity').value + '%';
+});
 $('s-trigger-mode').addEventListener('change', () => {
   $('s-trigger-mode-label').textContent = $('s-trigger-mode').value === 'hold' ? t('mode.hold.label') : t('mode.toggle.sub');
 });
