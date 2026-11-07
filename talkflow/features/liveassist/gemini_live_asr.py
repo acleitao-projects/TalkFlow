@@ -57,26 +57,39 @@ didn't show a literal server-message example):
   often beat our local VAD boundary, same observation as Deepgram's
   speech_final); if nothing final arrives in time, the latest interim text
   is promoted and returned instead of losing it entirely.
-- CONFIRMED LIVE (not guessed): this adapter does NOT use the shared
-  `_NoiseGate` that Deepgram/OpenAI use to withhold silent frames and save
-  cost. Tested directly: gated/intermittent audio (frames dropped during
-  brief pauses) silently produced ZERO transcription - no error, no
-  partial, nothing, for a full real JFK speech clip that transcribed
-  correctly on the first try. Sending every frame unconditionally (same as
-  the other adapters' gate OFF) fixed it immediately, confirmed against
-  the same audio. Best guess: Gemini's own server-side VAD/turn-detection
-  gets confused by gaps mid-utterance in a way Deepgram's doesn't - not
-  confirmed from Google's docs, just empirically necessary. This does mean
-  silence is billed here unlike the other two adapters; a manual-VAD mode
-  (disabling automaticActivityDetection and sending explicit
-  activityStart/activityEnd) could probably restore gating safely, but
-  that's unbuilt/unverified - not worth guessing at without live-testing
-  it the same way this bug was actually found.
-- UNKNOWN / not yet tested live: real-world streaming latency (Google's
-  docs only say "low-latency", no figure) and whether an idle connection
-  (one source quiet while the other talks) gets disconnected - no
-  keepalive is sent here since none is documented as needed; add one if
-  live testing shows a quiet source's connection dying mid-session.
+- CONFIRMED LIVE, TWO SEPARATE WAYS (not guessed): no noise gate is used
+  here, unlike Deepgram/OpenAI, and this was a deliberate choice after
+  real testing, not an oversight. First attempt used the shared
+  `_NoiseGate` (withholds silent frames to save cost) exactly like the
+  other two adapters - gated/intermittent audio (frames just stopped, no
+  signal to the server) produced ZERO transcription on a real JFK speech
+  clip that transcribed correctly every other way. Google's own Live API
+  capabilities guide describes exactly this scenario: "When the audio
+  stream is paused for more than a second..., an audioStreamEnd event
+  should be sent to flush any cached audio. The client can resume sending
+  audio data at any time." That was implemented properly (a
+  `{"realtimeInput": {"audioStreamEnd": true}}` message sent exactly when
+  the gate closed) and tested TWICE - once through this adapter, once in
+  total isolation with raw code, no adapter involved, following the docs'
+  own described scenario precisely (2.5s of real speech, audioStreamEnd,
+  a genuine 1.5s pause - well past their "more than a second" - then
+  resuming with plain audio, no special resume message, exactly as
+  documented). Both times: the pre-pause speech transcribed correctly,
+  and the server went completely silent afterward - zero response to 3
+  more seconds of real speech that would have transcribed fine on its
+  own. That's Google's own documented mechanism not working as documented
+  against their own API, confirmed independently of this adapter's code,
+  not a bug here. Sending every frame unconditionally is the only
+  approach confirmed to actually work across an entire session - it costs
+  more (silence is billed, no way found to avoid that for this provider)
+  but it's the one that doesn't silently go dead on a meeting's first
+  real pause. Don't re-attempt gating here without re-testing the premise
+  live first - this was tried properly, not skipped.
+- UNKNOWN / not yet tested live: whether an idle connection (one source
+  quiet while the other talks, for a long meeting) ever gets disconnected
+  on its own regardless of what we send - continuous audio is being sent
+  throughout per the above, so this is a different risk than Deepgram's
+  idle-timeout one, not yet observed in practice.
 """
 from __future__ import annotations
 
@@ -263,9 +276,17 @@ class TwoSourceGeminiLiveAsrAdapter:
 
     def feed_source_chunk(self, source_id: str, pcm: bytes) -> PartialResult | None:
         # No noise gate here - see the module docstring's "CONFIRMED LIVE"
-        # entry: gated/intermittent audio silently produced zero
-        # transcription in real testing, every frame sent unconditionally
-        # fixed it. Costs more (silence is billed) but actually works.
+        # entries for the full story: Google's own documented audioStreamEnd
+        # mechanism for exactly this "paused, want to resume" case was
+        # tried, twice, independently (through this adapter and in total
+        # isolation with raw code) - a real 1.5s pause with audioStreamEnd
+        # sent, then resuming plain audio afterward, got ZERO server
+        # response for 3 more seconds of real speech that transcribed fine
+        # before the pause. That's Google's own documented API not working
+        # as documented, not a bug here. Sending every frame unconditionally
+        # is the only approach confirmed to actually work - it costs more
+        # (silence is billed) but it's the one that doesn't silently go
+        # dead on a real meeting's first pause.
         conn = self._connections.get(source_id)
         if conn is None:
             return None

@@ -178,11 +178,15 @@ def test_adapter_finalize_source_returns_accumulated_text(monkeypatch):
 
 
 def test_feed_source_chunk_sends_every_frame_unconditionally(monkeypatch):
-    """Regression test for a real bug found live: gating/withholding silent
-    frames (the same noise gate Deepgram/OpenAI use) silently produced ZERO
-    transcription from Gemini - no error, nothing. Sending every frame,
-    silence included, is what actually works - see the module docstring's
-    "CONFIRMED LIVE" entry for how this was found."""
+    """Regression test for a real bug found live, confirmed TWICE (see the
+    module docstring's "CONFIRMED LIVE, TWO SEPARATE WAYS" entry): gating/
+    withholding silent frames (the same noise gate Deepgram/OpenAI use)
+    silently produced ZERO transcription from Gemini - no error, nothing -
+    and Google's own documented fix for this (audioStreamEnd) was tried
+    properly and ALSO confirmed not to work against the real API. Sending
+    every frame, silence included, is the only approach confirmed to
+    actually work across a whole session - don't re-add gating here
+    without re-testing the premise live first."""
     import numpy as np
     _patch_fake_ws(monkeypatch, [])
     adapter = TwoSourceGeminiLiveAsrAdapter(api_key="k")
