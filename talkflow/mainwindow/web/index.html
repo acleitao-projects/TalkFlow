@@ -252,8 +252,43 @@
   .toolbar-search-wrap { width: 0; overflow: hidden; transition: width .15s ease; }
   .toolbar-search-wrap.open { width: 200px; }
   .row-del-btn { display: none; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; color: var(--text-secondary); font-size: 13px; shrink: 0; }
-  .list-row:hover .row-del-btn, .meeting-summary:hover .row-del-btn { display: flex; }
+  .list-row:hover .row-del-btn, .meeting-summary:hover .row-del-btn, .assistant-card:hover .row-del-btn { display: flex; }
   .row-del-btn:hover { background: var(--danger-hover-bg); color: var(--danger-hover-text); }
+
+  /* ---- Selectable card galleries (Perssua-style library feel), built from
+     this app's own tokens/cards rather than new colors. Shared by Assistants
+     and Model Registry - same "click a card to activate it" interaction, so
+     deliberately the same classes/look rather than a parallel copy. ---- */
+  .assistant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .assistant-card {
+    position: relative; background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; cursor: pointer; transition: border-color .12s ease, box-shadow .12s ease, transform .08s ease;
+  }
+  .assistant-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .assistant-card.active { border-color: var(--accent-teal); box-shadow: 0 0 0 1.5px var(--accent-teal); }
+  .assistant-avatar {
+    width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    background: var(--accent-teal-light); color: var(--accent-teal); font-size: 16px; margin-bottom: 10px;
+  }
+  .assistant-card.active .assistant-avatar { background: var(--accent-teal); color: #fff; }
+  .assistant-name { font-weight: 600; font-size: 13.5px; margin-bottom: 3px; padding-right: 20px; }
+  .assistant-desc {
+    font-size: 12px; color: var(--text-secondary); line-height: 1.4; min-height: 2.8em;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .assistant-card-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
+  .assistant-card-actions .row-del-btn { position: static; }
+  .assistant-add-card {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    border: 1.5px dashed var(--border-strong); border-radius: 14px; padding: 14px; min-height: 96px;
+    color: var(--text-secondary); cursor: pointer; transition: border-color .12s ease, color .12s ease, background .12s ease;
+  }
+  .assistant-add-card:hover { border-color: var(--accent-teal); color: var(--accent-teal); background: var(--hover-bg); }
+  .assistant-add-card i { font-size: 20px; }
+  .assistant-form-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+  .registry-provider-badge { background: var(--accent-teal-light); color: var(--accent-teal); margin-right: 6px; }
+  .assistant-card.active .registry-provider-badge { background: var(--accent-teal); color: #fff; }
+  .registry-model { font-family: ui-monospace, monospace; font-size: 11px; }
 
   /* ---- Dictation hero (Wispr-style greeting + promo banner + quick stats) ---- */
   .dict-wrap { max-width: 980px; margin: 0 auto; }
@@ -826,25 +861,25 @@
     <section id="tab-assistants" class="hidden">
       <div class="dict-wrap">
       <h1 class="section-title" data-i18n="title.assistants">Assistants</h1>
-      <p class="section-sub mb-3" data-i18n="sub.assistants">Who Live Assist's suggestion engine is acting as, and what it's helping with - independent of any focused app. Pick which one is active below; it applies to the next suggestion request without restarting.</p>
+      <p class="section-sub mb-3" data-i18n="sub.assistants">Who Live Assist's suggestion engine is acting as, and what it's helping with - independent of any focused app. Click a card to make it active; it applies to the next suggestion request without restarting.</p>
 
-      <label class="block mb-4 max-w-md">
-        <div class="font-medium mb-1" data-i18n="assistants.active_label">Active assistant</div>
-        <select id="assistant-active-select" class="w-full px-3 py-2" onchange="setActiveAssistant(this.value)"></select>
-      </label>
+      <div id="assistant-grid" class="assistant-grid mb-6"></div>
 
-      <div id="assistant-list" class="card divide-y divide-[var(--border)] mb-4"></div>
-      <div class="flex flex-wrap gap-2 items-start mb-2">
-        <input id="asst-name" data-i18n-placeholder="assistants.name_placeholder" placeholder="name, e.g. Sales Coach" class="px-3 py-2 flex-1 min-w-[140px]" />
-        <input id="asst-task" data-i18n-placeholder="assistants.task_placeholder" placeholder="task, e.g. help close this deal" class="px-3 py-2 flex-1 min-w-[180px]" />
-        <input id="asst-style" data-i18n-placeholder="assistants.style_placeholder" placeholder="response style, e.g. confident, concise" class="px-3 py-2 flex-1 min-w-[180px]" />
-      </div>
-      <label class="block mb-2">
-        <div class="hotkey-row-sub mb-1" data-i18n="assistants.custom_prompt_label">Advanced: custom system prompt (optional - overrides task/response style above with a full hand-written persona)</div>
-        <textarea id="asst-custom-prompt" data-i18n-placeholder="assistants.custom_prompt_placeholder" placeholder="Paste a full ROLE/TASK/STYLE-style prompt here to fully override the fields above..." class="w-full px-3 py-2" rows="4"></textarea>
-      </label>
-      <div class="flex flex-wrap gap-2 items-start">
-        <button onclick="createAssistant()" class="btn btn-primary shrink-0" data-i18n="dict.add">Add</button>
+      <div class="assistant-form-card max-w-2xl">
+        <h2 class="text-[13.5px] font-semibold mb-3" id="assistant-form-title" data-i18n="assistants.new_title">New assistant</h2>
+        <div class="flex flex-wrap gap-2 items-start mb-2">
+          <input id="asst-name" data-i18n-placeholder="assistants.name_placeholder" placeholder="name, e.g. Sales Coach" class="px-3 py-2 flex-1 min-w-[140px]" />
+          <input id="asst-task" data-i18n-placeholder="assistants.task_placeholder" placeholder="task, e.g. help close this deal" class="px-3 py-2 flex-1 min-w-[180px]" />
+          <input id="asst-style" data-i18n-placeholder="assistants.style_placeholder" placeholder="response style, e.g. confident, concise" class="px-3 py-2 flex-1 min-w-[180px]" />
+        </div>
+        <label class="block mb-3">
+          <div class="hotkey-row-sub mb-1" data-i18n="assistants.custom_prompt_label">Advanced: custom system prompt (optional - overrides task/response style above with a full hand-written persona)</div>
+          <textarea id="asst-custom-prompt" data-i18n-placeholder="assistants.custom_prompt_placeholder" placeholder="Paste a full ROLE/TASK/STYLE-style prompt here to fully override the fields above..." class="w-full px-3 py-2" rows="4"></textarea>
+        </label>
+        <div class="flex gap-2">
+          <button id="assistant-form-submit" onclick="submitAssistantForm()" class="btn btn-primary shrink-0" data-i18n="dict.add">Add</button>
+          <button id="assistant-form-cancel" onclick="cancelAssistantEdit()" class="btn btn-secondary shrink-0 hidden" data-i18n="btn.cancel">Cancel</button>
+        </div>
       </div>
       </div>
     </section>
@@ -854,46 +889,76 @@
       <h1 class="section-title" data-i18n="title.registry">Model Registry</h1>
       <p class="section-sub" data-i18n="sub.registry">Every pipeline stage's provider is swappable — nothing is hardcoded. "Test" tries a real request before anything is saved, so a bad key or URL can't break dictation.</p>
 
-      <h2 class="text-[15px] font-semibold mb-2" data-i18n="registry.asr_title">ASR &mdash; speech to text</h2>
-      <div id="registry-asr" class="card divide-y divide-[var(--border)] mb-3"></div>
-      <div class="flex flex-wrap gap-2 mb-1">
-        <input id="asr-name" placeholder="name e.g. OpenRouter Nemotron" class="px-3 py-2 flex-1 min-w-[140px]" />
-        <input id="asr-provider" placeholder="provider e.g. openrouter" class="px-3 py-2 flex-1 min-w-[110px]" />
-        <input id="asr-base-url" placeholder="base_url" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <input id="asr-model-id" placeholder="model id" class="px-3 py-2 flex-1 min-w-[140px]" />
-        <input id="asr-api-key" placeholder="API key (optional - local providers need none)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <button onclick="testAndSaveRegistry('asr')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
+      <div class="insights-subtabs">
+        <span class="insights-subtab active" data-stage="asr" data-i18n="registry.tab_asr" onclick="setRegistryTab('asr')">ASR</span>
+        <span class="insights-subtab" data-stage="live_assist_asr" data-i18n="registry.tab_live_assist_asr" onclick="setRegistryTab('live_assist_asr')">Live Assist ASR</span>
+        <span class="insights-subtab" data-stage="cleanup" data-i18n="registry.tab_cleanup" onclick="setRegistryTab('cleanup')">Cleanup</span>
       </div>
-      <div id="asr-test-result" class="text-sm mb-6"></div>
 
+      <div id="registry-view-asr">
+      <h2 class="text-[15px] font-semibold mb-2" data-i18n="registry.asr_title">ASR &mdash; speech to text</h2>
+      <div id="registry-asr" class="assistant-grid mb-3"></div>
+      <div class="assistant-form-card max-w-3xl">
+        <h3 class="text-[13px] font-semibold mb-3" id="asr-form-title" data-i18n="registry.new_title">New entry</h3>
+        <div class="flex flex-wrap gap-2 items-start mb-1">
+          <input id="asr-name" placeholder="name e.g. OpenRouter Nemotron" class="px-3 py-2 flex-1 min-w-[140px]" />
+          <input id="asr-provider" placeholder="provider e.g. openrouter" class="px-3 py-2 flex-1 min-w-[110px]" />
+          <input id="asr-base-url" placeholder="base_url" class="px-3 py-2 flex-1 min-w-[160px]" />
+          <input id="asr-model-id" placeholder="model id" class="px-3 py-2 flex-1 min-w-[140px]" />
+          <input id="asr-api-key" placeholder="API key (optional - local providers need none)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
+        </div>
+        <div class="flex gap-2 items-center mt-2">
+          <button id="asr-form-submit" onclick="testAndSaveRegistry('asr')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
+          <button id="asr-form-cancel" onclick="cancelRegistryEdit('asr')" class="btn btn-secondary shrink-0 hidden" data-i18n="btn.cancel">Cancel</button>
+          <div id="asr-test-result" class="text-sm"></div>
+        </div>
+      </div>
+      </div>
+
+      <div id="registry-view-live_assist_asr" class="hidden">
       <h2 class="text-[15px] font-semibold mb-2" data-i18n="registry.live_assist_asr_title">Live Assist ASR &mdash; optional, overrides ASR above for Live Assist only</h2>
       <p class="section-sub" data-i18n="registry.live_assist_asr_sub">Leave empty to use the ASR provider above - including local Nemotron, which Live Assist runs fully in-process (two concurrent sherpa-onnx streams off one loaded model, no network, no socket) via the button below. Recommended: provider "whisperlivekit" + base_url "http://192.168.1.36:8765" for a self-hosted faster-whisper streaming server on the LAN (R730, LXC 141) - free beyond electricity, LAN-only latency instead of a WAN round trip. provider "openai-realtime" + model "gpt-live-transcribe" is the proven cloud fallback. provider "deepgram" + model "nova-3" is also wired up but its real-world latency measured 1.4-3s in testing here despite documenting sub-300ms - likely network/routing specific to this connection, not necessarily true everywhere, but not recommended until re-verified. provider "openai" + model "whisper-1"/"gpt-4o-transcribe" is the simpler batch path (no live interim text). base_url only matters for the batch and whisperlivekit paths - the realtime/deepgram paths ignore it.</p>
-      <div id="registry-live_assist_asr" class="card divide-y divide-[var(--border)] mb-3"></div>
+      <div id="registry-live_assist_asr" class="assistant-grid mb-3"></div>
       <div class="mb-3">
         <button onclick="useLocalNemotronForLiveAssist()" class="btn btn-secondary" data-i18n="registry.use_local_nemotron">Use local Nemotron (same model as Dictation)</button>
         <div class="hotkey-row-sub mt-1" data-i18n="registry.use_local_nemotron_sub">Runs entirely on this machine, no API key or internet needed. Loads a second copy of the model in memory (Live Assist needs two concurrent streams, "me" + "they") alongside Dictation's own - watch VRAM if both run at once.</div>
       </div>
-      <div class="flex flex-wrap gap-2 mb-1">
-        <input id="live_assist_asr-name" placeholder="name e.g. OpenAI Realtime" class="px-3 py-2 flex-1 min-w-[140px]" />
-        <input id="live_assist_asr-provider" placeholder="provider e.g. openai-realtime" class="px-3 py-2 flex-1 min-w-[110px]" />
-        <input id="live_assist_asr-base-url" placeholder="base_url (batch path only)" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <input id="live_assist_asr-model-id" placeholder="model id e.g. gpt-live-transcribe" class="px-3 py-2 flex-1 min-w-[140px]" />
-        <input id="live_assist_asr-api-key" placeholder="API key" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <button onclick="testAndSaveRegistry('live_assist_asr')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
+      <div class="assistant-form-card max-w-3xl">
+        <h3 class="text-[13px] font-semibold mb-3" id="live_assist_asr-form-title" data-i18n="registry.new_title">New entry</h3>
+        <div class="flex flex-wrap gap-2 items-start mb-1">
+          <input id="live_assist_asr-name" placeholder="name e.g. OpenAI Realtime" class="px-3 py-2 flex-1 min-w-[140px]" />
+          <input id="live_assist_asr-provider" placeholder="provider e.g. openai-realtime" class="px-3 py-2 flex-1 min-w-[110px]" />
+          <input id="live_assist_asr-base-url" placeholder="base_url (batch path only)" class="px-3 py-2 flex-1 min-w-[160px]" />
+          <input id="live_assist_asr-model-id" placeholder="model id e.g. gpt-live-transcribe" class="px-3 py-2 flex-1 min-w-[140px]" />
+          <input id="live_assist_asr-api-key" placeholder="API key" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
+        </div>
+        <div class="flex gap-2 items-center mt-2">
+          <button id="live_assist_asr-form-submit" onclick="testAndSaveRegistry('live_assist_asr')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
+          <button id="live_assist_asr-form-cancel" onclick="cancelRegistryEdit('live_assist_asr')" class="btn btn-secondary shrink-0 hidden" data-i18n="btn.cancel">Cancel</button>
+          <div id="live_assist_asr-test-result" class="text-sm"></div>
+        </div>
       </div>
-      <div id="live_assist_asr-test-result" class="text-sm mb-6"></div>
+      </div>
 
+      <div id="registry-view-cleanup" class="hidden">
       <h2 class="text-[15px] font-semibold mb-2" data-i18n="registry.cleanup_title">Cleanup &mdash; text to text, OpenAI-compatible (local or cloud)</h2>
-      <div id="registry-cleanup" class="card divide-y divide-[var(--border)] mb-3"></div>
-      <div class="flex flex-wrap gap-2 mb-1">
-        <input id="cleanup-name" placeholder="name e.g. Ollama Cloud" class="px-3 py-2 flex-1 min-w-[140px]" />
-        <input id="cleanup-provider" placeholder="provider e.g. ollama-cloud" class="px-3 py-2 flex-1 min-w-[110px]" />
-        <input id="cleanup-base-url" placeholder="base_url e.g. https://ollama.com" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <input id="cleanup-model-id" placeholder="model id e.g. gemma4:31b" class="px-3 py-2 flex-1 min-w-[140px]" />
-        <input id="cleanup-api-key" placeholder="API key (optional - local providers need none)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
-        <button onclick="testAndSaveRegistry('cleanup')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
+      <div id="registry-cleanup" class="assistant-grid mb-3"></div>
+      <div class="assistant-form-card max-w-3xl">
+        <h3 class="text-[13px] font-semibold mb-3" id="cleanup-form-title" data-i18n="registry.new_title">New entry</h3>
+        <div class="flex flex-wrap gap-2 items-start mb-1">
+          <input id="cleanup-name" placeholder="name e.g. Ollama Cloud" class="px-3 py-2 flex-1 min-w-[140px]" />
+          <input id="cleanup-provider" placeholder="provider e.g. ollama-cloud" class="px-3 py-2 flex-1 min-w-[110px]" />
+          <input id="cleanup-base-url" placeholder="base_url e.g. https://ollama.com" class="px-3 py-2 flex-1 min-w-[160px]" />
+          <input id="cleanup-model-id" placeholder="model id e.g. gemma4:31b" class="px-3 py-2 flex-1 min-w-[140px]" />
+          <input id="cleanup-api-key" placeholder="API key (optional - local providers need none)" type="password" class="px-3 py-2 flex-1 min-w-[160px]" />
+        </div>
+        <div class="flex gap-2 items-center mt-2">
+          <button id="cleanup-form-submit" onclick="testAndSaveRegistry('cleanup')" class="btn btn-primary shrink-0" data-i18n="registry.test_save">Test &amp; Save</button>
+          <button id="cleanup-form-cancel" onclick="cancelRegistryEdit('cleanup')" class="btn btn-secondary shrink-0 hidden" data-i18n="btn.cancel">Cancel</button>
+          <div id="cleanup-test-result" class="text-sm"></div>
+        </div>
       </div>
-      <div id="cleanup-test-result" class="text-sm"></div>
+      </div>
       </div>
     </section>
 
@@ -901,9 +966,16 @@
       <div class="dict-wrap">
       <h1 class="section-title" data-i18n="title.settings">Settings</h1>
 
-      <h2 class="text-[15px] font-semibold mb-1 mt-2" data-i18n="settings.shortcuts_title">Shortcuts</h2>
+      <div class="insights-subtabs">
+        <span class="insights-subtab active" data-view="shortcuts" data-i18n="settings.tab_shortcuts" onclick="setSettingsTab('shortcuts')">Shortcuts</span>
+        <span class="insights-subtab" data-view="dictation" data-i18n="settings.tab_dictation" onclick="setSettingsTab('dictation')">Dictation</span>
+        <span class="insights-subtab" data-view="liveassist" data-i18n="settings.tab_liveassist" onclick="setSettingsTab('liveassist')">Live Assist</span>
+        <span class="insights-subtab" data-view="privacy" data-i18n="settings.tab_privacy" onclick="setSettingsTab('privacy')">Privacy &amp; Startup</span>
+      </div>
+
+      <div id="settings-view-shortcuts">
       <p class="section-sub" style="margin-bottom:8px" data-i18n="sub.settings_shortcuts">Click Change, then press the keys you want &mdash; no typing required.</p>
-      <div class="card divide-y divide-[var(--border)] mb-8">
+      <div class="card divide-y divide-[var(--border)]">
         <div class="hotkey-row px-4">
           <div><div class="hotkey-row-label" data-i18n="settings.dictate_label">Dictate</div><div class="hotkey-row-sub" id="s-trigger-mode-label"></div></div>
           <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-dictate"></span><button class="btn btn-secondary" onclick="changeMainHotkey('hotkey','th-dictate')" data-i18n="btn.change">Change</button></div>
@@ -925,8 +997,9 @@
           <div class="flex items-center gap-2"><span class="hotkey-chip" id="th-liveassist-capture"></span><button class="btn btn-secondary" onclick="changeMainHotkey('live_assist_capture_hotkey','th-liveassist-capture')" data-i18n="btn.change">Change</button></div>
         </div>
       </div>
+      </div>
 
-      <h2 class="text-[15px] font-semibold mb-3" data-i18n="settings.general_title">General</h2>
+      <div id="settings-view-dictation" class="hidden">
       <div class="card p-4 space-y-4 max-w-lg">
         <label class="block">
           <div class="font-medium mb-1" data-i18n="settings.trigger_mode_label">Trigger mode</div>
@@ -945,6 +1018,16 @@
           <select id="s-input-device" class="w-full px-3 py-2"></select>
           <div class="hotkey-row-sub mt-1" data-i18n="settings.restart_hint">Restart to apply.</div>
         </label>
+        <label class="block">
+          <div class="flex items-center gap-2"><input type="checkbox" id="s-partial-paste" class="w-4 h-4" /> <span data-i18n="settings.partial_paste_label">Paste while speaking</span></div>
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.partial_paste_sub">Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.</div>
+        </label>
+        <button onclick="saveSettings()" class="btn btn-primary" data-i18n="settings.save">Save</button>
+      </div>
+      </div>
+
+      <div id="settings-view-liveassist" class="hidden">
+      <div class="card p-4 space-y-4 max-w-lg">
         <label class="block">
           <div class="font-medium mb-1" data-i18n="settings.liveassist_sysaudio_label">Live Assist: "THEM" audio source</div>
           <select id="s-liveassist-sysaudio" class="w-full px-3 py-2"></select>
@@ -972,17 +1055,20 @@
           </div>
           <div class="hotkey-row-sub mt-1" data-i18n="settings.liveassist_opacity_sub">Lower = more see-through. Applies immediately.</div>
         </label>
+        <button onclick="saveSettings()" class="btn btn-primary" data-i18n="settings.save">Save</button>
+      </div>
+      </div>
+
+      <div id="settings-view-privacy" class="hidden">
+      <div class="card p-4 space-y-4 max-w-lg">
         <label class="flex items-center gap-2"><input type="checkbox" id="s-retain-history" class="w-4 h-4" /> <span data-i18n="settings.retain_history">Retain history</span></label>
-        <label class="block">
-          <div class="flex items-center gap-2"><input type="checkbox" id="s-partial-paste" class="w-4 h-4" /> <span data-i18n="settings.partial_paste_label">Paste while speaking</span></div>
-          <div class="hotkey-row-sub mt-1" data-i18n="settings.partial_paste_sub">Inserts text at each pause instead of all at once. Each piece is cleaned on its own, so cleanup is weaker. Not used with a held modifier hotkey (e.g. Ctrl+Shift+D in hold mode). Restart to apply.</div>
-        </label>
         <label class="flex items-center gap-2"><input type="checkbox" id="s-launch-at-login" class="w-4 h-4" /> <span data-i18n="settings.launch_at_login">Launch TalkFlow at login</span></label>
         <label class="block">
           <div class="flex items-center gap-2"><input type="checkbox" id="s-hide-from-capture" class="w-4 h-4" /> <span data-i18n="settings.hide_from_capture_label">Hide this window from screen capture</span></div>
           <div class="hotkey-row-sub mt-1" data-i18n="settings.hide_from_capture_sub">Keeps this window AND the Live Assist panel out of Print Screen, screen shares and recordings. Turn off temporarily if you want to screenshot either yourself - takes effect immediately, no restart needed.</div>
         </label>
         <button onclick="saveSettings()" class="btn btn-primary" data-i18n="settings.save">Save</button>
+      </div>
       </div>
       </div>
     </section>
@@ -1017,8 +1103,10 @@ const TRANSLATIONS = {
     'sub.transforms_custom': 'Up to 8, each with its own hotkey. Restart TalkFlow after adding or removing one.',
     'sub.command_mode': 'Spoken instructions that edit text, draft a reply, or search — no trigger phrase, requires a focused editable field.',
     'sub.notetaker': "Start or stop a meeting recording from the tray icon (mic + system audio). Least-tested feature — verify loopback actually captures your meeting app's audio before relying on it.",
-    'sub.assistants': "Who Live Assist's suggestion engine is acting as, and what it's helping with - independent of any focused app. Pick which one is active below; it applies to the next suggestion request without restarting.",
+    'sub.assistants': "Who Live Assist's suggestion engine is acting as, and what it's helping with - independent of any focused app. Click a card to make it active; it applies to the next suggestion request without restarting.",
     'assistants.active_label': 'Active assistant',
+    'assistants.new_title': 'New assistant',
+    'assistants.edit_title': 'Edit assistant',
     'assistants.name_placeholder': 'name, e.g. Sales Coach',
     'assistants.task_placeholder': 'task, e.g. help close this deal',
     'assistants.style_placeholder': 'response style, e.g. confident, concise',
@@ -1127,6 +1215,7 @@ const TRANSLATIONS = {
     'snip.empty_filtered': 'No snippets match this filter.',
     'snip.save': 'Save',
     'btn.change': 'Change',
+    'btn.cancel': 'Cancel',
     'scratch.add_to_pill': 'Add to floating pill',
     'scratch.search_placeholder': 'Search notes…',
     'scratch.untitled': 'Untitled',
@@ -1153,14 +1242,27 @@ const TRANSLATIONS = {
     'note.empty': 'No meetings recorded yet.',
     'registry.asr_title': 'ASR &mdash; speech to text',
     'registry.live_assist_asr_title': 'Live Assist ASR &mdash; optional, overrides ASR above for Live Assist only',
-    'registry.live_assist_asr_sub': 'Leave empty to use the ASR provider above - including local Nemotron, which Live Assist runs fully in-process (two concurrent sherpa-onnx streams off one loaded model, no network, no socket) via the button below. Recommended: provider "whisperlivekit" + base_url "http://192.168.1.36:8765" for a self-hosted faster-whisper streaming server on the LAN - free beyond electricity, LAN-only latency instead of a WAN round trip. provider "openai-realtime" + model "gpt-live-transcribe" is the proven cloud fallback. provider "deepgram" + model "nova-3" is also wired up but measured 1.4-3s real-world latency in testing here despite documenting sub-300ms - not recommended until re-verified. provider "openai" + model "whisper-1"/"gpt-4o-transcribe" is the simpler batch path (no live interim text). base_url only matters for the batch and whisperlivekit paths.',
+    'registry.live_assist_asr_sub': 'Leave empty to use the ASR provider above - including local Nemotron, which Live Assist runs fully in-process (two concurrent sherpa-onnx streams off one loaded model, no network, no socket) via the button below. Recommended: provider "whisperlivekit" + base_url "http://192.168.1.36:8765" for a self-hosted faster-whisper streaming server on the LAN - free beyond electricity, LAN-only latency instead of a WAN round trip. provider "openai-realtime" + model "gpt-live-transcribe" is the proven cloud fallback. provider "deepgram" + model "nova-3" is also wired up but measured 1.4-3s real-world latency in testing here despite documenting sub-300ms - not recommended until re-verified. provider "gemini-live" + model "gemini-3.5-transcribe-live" is Google\'s Gemini Live API streaming transcription - cheaper than the others (~$0.009/min) but its real-world latency hasn\'t been measured here yet, same "verify before trusting the docs" caution as Deepgram. provider "openai" + model "whisper-1"/"gpt-4o-transcribe" is the simpler batch path (no live interim text). base_url only matters for the batch and whisperlivekit paths.',
     'registry.use_local_nemotron': 'Use local Nemotron (same model as Dictation)',
     'registry.use_local_nemotron_sub': 'Runs entirely on this machine, no API key or internet needed. Loads a second copy of the model in memory (Live Assist needs two concurrent streams, "me" + "they") alongside Dictation\'s own - watch VRAM if both run at once.',
     'registry.cleanup_title': 'Cleanup &mdash; text to text, OpenAI-compatible (local or cloud)',
     'registry.test_save': 'Test &amp; Save',
+    'registry.save': 'Save',
     'registry.active': 'Active',
     'registry.activate': 'Activate',
     'registry.no_entries': 'No entries yet.',
+    'registry.tab_asr': 'ASR',
+    'registry.tab_live_assist_asr': 'Live Assist ASR',
+    'registry.tab_cleanup': 'Cleanup',
+    'registry.new_title': 'New entry',
+    'registry.edit_title': 'Edit entry',
+    'registry.saved': 'Saved.',
+    'registry.saved_activated': 'Saved and activated.',
+    'registry.key_unchanged': 'API key (leave blank to keep the current one)',
+    'settings.tab_shortcuts': 'Shortcuts',
+    'settings.tab_dictation': 'Dictation',
+    'settings.tab_liveassist': 'Live Assist',
+    'settings.tab_privacy': 'Privacy &amp; Startup',
     'settings.shortcuts_title': 'Shortcuts',
     'settings.dictate_label': 'Dictate',
     'settings.panic_hide_label': 'Panic-hide',
@@ -1217,8 +1319,10 @@ const TRANSLATIONS = {
     'sub.transforms_custom': 'Até 8, cada um com seu próprio atalho. Reinicie o TalkFlow depois de adicionar ou remover um.',
     'sub.command_mode': 'Instruções faladas que editam texto, rascunham uma resposta ou pesquisam — sem frase de gatilho, precisa de um campo editável em foco.',
     'sub.notetaker': 'Inicia ou para uma gravação de reunião pelo ícone da bandeja (microfone + áudio do sistema). Funcionalidade menos testada — confirme que a captura do áudio do seu app de reunião funciona antes de confiar nela.',
-    'sub.assistants': 'Quem o motor de sugestões do Live Assist está representando, e o que ele está ajudando com - independente de qual app está em foco. Escolha qual está ativo abaixo; aplica-se à próxima sugestão sem reiniciar.',
+    'sub.assistants': 'Quem o motor de sugestões do Live Assist está representando, e o que ele está ajudando com - independente de qual app está em foco. Clique num card para deixá-lo ativo; aplica-se à próxima sugestão sem reiniciar.',
     'assistants.active_label': 'Assistente ativo',
+    'assistants.new_title': 'Novo assistente',
+    'assistants.edit_title': 'Editar assistente',
     'assistants.name_placeholder': 'nome, ex: Coach de Vendas',
     'assistants.task_placeholder': 'tarefa, ex: ajudar a fechar esse negócio',
     'assistants.style_placeholder': 'estilo de resposta, ex: confiante, direto',
@@ -1327,6 +1431,7 @@ const TRANSLATIONS = {
     'snip.empty_filtered': 'Nenhum atalho corresponde a esse filtro.',
     'snip.save': 'Salvar',
     'btn.change': 'Mudar',
+    'btn.cancel': 'Cancelar',
     'scratch.add_to_pill': 'Adicionar à pílula flutuante',
     'scratch.search_placeholder': 'Buscar notas…',
     'scratch.untitled': 'Sem título',
@@ -1353,14 +1458,27 @@ const TRANSLATIONS = {
     'note.empty': 'Nenhuma reunião registrada ainda.',
     'registry.asr_title': 'ASR &mdash; voz para texto',
     'registry.live_assist_asr_title': 'ASR do Live Assist &mdash; opcional, substitui o ASR acima só para o Live Assist',
-    'registry.live_assist_asr_sub': 'Deixe em branco para usar o provedor de ASR acima - incluindo o Nemotron local, que o Live Assist roda totalmente em processo (dois streams sherpa-onnx simultâneos a partir de um único modelo carregado, sem rede, sem socket) pelo botão abaixo. Recomendado: provider "whisperlivekit" + base_url "http://192.168.1.36:8765" para um servidor faster-whisper auto-hospedado na LAN - de graça além da eletricidade, latência só de LAN em vez de round trip pela internet. provider "openai-realtime" + model "gpt-live-transcribe" é o fallback de nuvem já comprovado. provider "deepgram" + model "nova-3" também está disponível mas mediu 1.4-3s de latência real nos testes aqui apesar de documentar abaixo de 300ms - não recomendado até ser reverificado. provider "openai" + model "whisper-1"/"gpt-4o-transcribe" é o caminho em lote mais simples (sem texto parcial em tempo real). base_url só importa para os caminhos em lote e whisperlivekit.',
+    'registry.live_assist_asr_sub': 'Deixe em branco para usar o provedor de ASR acima - incluindo o Nemotron local, que o Live Assist roda totalmente em processo (dois streams sherpa-onnx simultâneos a partir de um único modelo carregado, sem rede, sem socket) pelo botão abaixo. Recomendado: provider "whisperlivekit" + base_url "http://192.168.1.36:8765" para um servidor faster-whisper auto-hospedado na LAN - de graça além da eletricidade, latência só de LAN em vez de round trip pela internet. provider "openai-realtime" + model "gpt-live-transcribe" é o fallback de nuvem já comprovado. provider "deepgram" + model "nova-3" também está disponível mas mediu 1.4-3s de latência real nos testes aqui apesar de documentar abaixo de 300ms - não recomendado até ser reverificado. provider "gemini-live" + model "gemini-3.5-transcribe-live" é a transcrição em streaming da Gemini Live API do Google - mais barato que os outros (~$0.009/min), mas a latência real ainda não foi medida aqui, mesma cautela "verificar antes de confiar na documentação" do Deepgram. provider "openai" + model "whisper-1"/"gpt-4o-transcribe" é o caminho em lote mais simples (sem texto parcial em tempo real). base_url só importa para os caminhos em lote e whisperlivekit.',
     'registry.use_local_nemotron': 'Usar Nemotron local (mesmo modelo da Dictation)',
     'registry.use_local_nemotron_sub': 'Roda totalmente nesta máquina, sem API key ou internet. Carrega uma segunda cópia do modelo na memória (Live Assist precisa de dois streams simultâneos, "me" + "they") além da própria Dictation - atenção à VRAM se os dois rodarem juntos.',
     'registry.cleanup_title': 'Limpeza &mdash; texto para texto, compatível com OpenAI (local ou nuvem)',
     'registry.test_save': 'Testar e Salvar',
+    'registry.save': 'Salvar',
     'registry.active': 'Ativo',
     'registry.activate': 'Ativar',
     'registry.no_entries': 'Nenhuma entrada ainda.',
+    'registry.tab_asr': 'ASR',
+    'registry.tab_live_assist_asr': 'ASR do Live Assist',
+    'registry.tab_cleanup': 'Limpeza',
+    'registry.new_title': 'Nova entrada',
+    'registry.edit_title': 'Editar entrada',
+    'registry.saved': 'Salvo.',
+    'registry.saved_activated': 'Salvo e ativado.',
+    'registry.key_unchanged': 'API key (deixe em branco para manter a atual)',
+    'settings.tab_shortcuts': 'Atalhos',
+    'settings.tab_dictation': 'Ditado',
+    'settings.tab_liveassist': 'Live Assist',
+    'settings.tab_privacy': 'Privacidade e inicialização',
     'settings.shortcuts_title': 'Atalhos',
     'settings.dictate_label': 'Ditar',
     'settings.panic_hide_label': 'Ocultar imediatamente',
@@ -2485,58 +2603,108 @@ async function loadMeetings() {
 async function deleteMeeting(id) { await pywebview.api.delete_meeting(id); loadMeetings(); }
 
 // ---- Assistants (LA-08) ----
+let _assistantsCache = [];
+let _editingAssistantId = null;
+
 async function loadAssistants() {
   const [assistants, activeId] = await Promise.all([
     pywebview.api.list_assistants(), pywebview.api.get_active_assistant_id(),
   ]);
-  $('assistant-list').innerHTML = assistants.map(a => `
-    <div class="list-row">
-      <div class="min-w-0">
-        <div class="font-medium">${escapeHtml(a.name)}</div>
-        <div class="text-xs text-[var(--text-secondary)]">${escapeHtml(a.task)}${a.response_style ? ' &middot; ' + escapeHtml(a.response_style) : ''}</div>
+  _assistantsCache = assistants;
+  const cards = assistants.map(a => {
+    const isActive = a.id === activeId || (!activeId && a.is_builtin);
+    const desc = escapeHtml(a.task) + (a.response_style ? ' &middot; ' + escapeHtml(a.response_style) : '');
+    return `
+    <div class="assistant-card${isActive ? ' active' : ''}" onclick="setActiveAssistant('${a.id}')">
+      <div class="assistant-avatar"><i class="ti ti-robot-face"></i></div>
+      <div class="assistant-card-actions">
+        <span class="row-del-btn" onclick="event.stopPropagation(); editAssistant('${a.id}')"><i class="ti ti-pencil"></i></span>
+        ${a.is_builtin ? '' : `<span class="row-del-btn" onclick="event.stopPropagation(); deleteAssistant('${a.id}')"><i class="ti ti-trash"></i></span>`}
       </div>
-      ${a.is_builtin ? '' : `<span class="row-del-btn" onclick="deleteAssistant('${a.id}')"><i class="ti ti-trash"></i></span>`}
-    </div>`).join('') || `<div class="list-row text-[var(--text-secondary)]">${t('assistants.none')}</div>`;
-
-  const select = $('assistant-active-select');
-  select.innerHTML = assistants.map(a =>
-    `<option value="${a.id}" ${(!activeId && a.is_builtin) || a.id === activeId ? 'selected' : ''}>${escapeHtml(a.name)}</option>`
-  ).join('');
+      <div class="assistant-name">${escapeHtml(a.name)}</div>
+      <div class="assistant-desc">${desc}</div>
+    </div>`;
+  }).join('');
+  $('assistant-grid').innerHTML = cards || `<div class="text-[var(--text-secondary)] text-sm">${t('assistants.none')}</div>`;
 }
-async function createAssistant() {
+async function submitAssistantForm() {
   const name = $('asst-name').value.trim(), task = $('asst-task').value.trim(), style = $('asst-style').value.trim();
   const customPrompt = $('asst-custom-prompt').value.trim() || null;
   if (!name || !task) return;
-  const result = await pywebview.api.create_assistant(name, task, style, customPrompt);
+  const result = _editingAssistantId
+    ? await pywebview.api.update_assistant(_editingAssistantId, name, task, style, customPrompt)
+    : await pywebview.api.create_assistant(name, task, style, customPrompt);
   if (!result.ok) { alert(result.error); return; }
-  $('asst-name').value = ''; $('asst-task').value = ''; $('asst-style').value = ''; $('asst-custom-prompt').value = '';
+  cancelAssistantEdit();
   loadAssistants();
+}
+function editAssistant(id) {
+  const a = _assistantsCache.find(x => x.id === id);
+  if (!a) return;
+  _editingAssistantId = id;
+  $('asst-name').value = a.name;
+  $('asst-task').value = a.task;
+  $('asst-style').value = a.response_style || '';
+  $('asst-custom-prompt').value = a.custom_system_prompt || '';
+  $('assistant-form-title').innerHTML = t('assistants.edit_title');
+  $('assistant-form-submit').innerHTML = t('snip.save');
+  $('assistant-form-cancel').classList.remove('hidden');
+  $('asst-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('asst-name').focus();
+}
+function cancelAssistantEdit() {
+  _editingAssistantId = null;
+  $('asst-name').value = ''; $('asst-task').value = ''; $('asst-style').value = ''; $('asst-custom-prompt').value = '';
+  $('assistant-form-title').innerHTML = t('assistants.new_title');
+  $('assistant-form-submit').innerHTML = t('dict.add');
+  $('assistant-form-cancel').classList.add('hidden');
 }
 async function deleteAssistant(id) {
   const result = await pywebview.api.delete_assistant(id);
   if (!result.ok) { alert(result.error); return; }
+  if (_editingAssistantId === id) cancelAssistantEdit();
   loadAssistants();
 }
-async function setActiveAssistant(id) { await pywebview.api.set_active_assistant(id); }
+async function setActiveAssistant(id) { await pywebview.api.set_active_assistant(id); loadAssistants(); }
 
-function renderRegistryRows(stage, rows) {
-  return rows.map(a => `<div class="list-row">
-    <span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.provider)} &middot; ${escapeHtml(a.base_url)} &middot; ${escapeHtml(a.model_id)}</span>
-    <span class="flex items-center gap-2">
-      ${a.is_active ? `<span class="badge" style="color:var(--success);flex-shrink:0;white-space:nowrap">${t('registry.active')}</span>`
-                     : `<button class="btn btn-secondary" onclick="activateRegistry('${stage}', ${a.id})">${t('registry.activate')}</button>`}
-      <button class="btn btn-secondary" onclick="deleteRegistry('${stage}', ${a.id})">${t('menu.delete')}</button>
-    </span>
-  </div>`).join('') || `<div class="list-row text-[var(--text-secondary)]">${t('registry.no_entries')}</div>`;
+// Card gallery, same look/interaction as Assistants ("click a card to
+// activate it", pencil to edit, trash to delete) - three independent
+// galleries, one per pipeline stage, each with its own cache/edit-state
+// since they're otherwise unrelated entries.
+let _registryCache = { asr: [], live_assist_asr: [], cleanup: [] };
+let _editingRegistryId = { asr: null, live_assist_asr: null, cleanup: null };
+
+function renderRegistryCards(stage, rows) {
+  return rows.map(a => `
+    <div class="assistant-card${a.is_active ? ' active' : ''}" onclick="activateRegistry('${stage}', ${a.id})">
+      <div class="assistant-avatar"><i class="ti ti-cpu"></i></div>
+      <div class="assistant-card-actions">
+        <span class="row-del-btn" onclick="event.stopPropagation(); editRegistryRow('${stage}', ${a.id})"><i class="ti ti-pencil"></i></span>
+        <span class="row-del-btn" onclick="event.stopPropagation(); deleteRegistry('${stage}', ${a.id})"><i class="ti ti-trash"></i></span>
+      </div>
+      <div class="assistant-name">${escapeHtml(a.name)}</div>
+      <div class="assistant-desc">
+        <span class="badge registry-provider-badge">${escapeHtml(a.provider)}</span>
+        <span class="registry-model">${escapeHtml(a.model_id)}</span>
+      </div>
+    </div>`).join('') || `<div class="text-[var(--text-secondary)] text-sm">${t('registry.no_entries')}</div>`;
+}
+
+function setRegistryTab(stage) {
+  document.querySelectorAll('#tab-registry .insights-subtab').forEach(el => el.classList.toggle('active', el.dataset.stage === stage));
+  ['asr', 'live_assist_asr', 'cleanup'].forEach(s => $(`registry-view-${s}`).classList.toggle('hidden', s !== stage));
 }
 
 async function loadRegistry() {
   const asr = await pywebview.api.list_registry('asr');
-  $('registry-asr').innerHTML = renderRegistryRows('asr', asr);
+  _registryCache.asr = asr;
+  $('registry-asr').innerHTML = renderRegistryCards('asr', asr);
   const liveAssistAsr = await pywebview.api.list_registry('live_assist_asr');
-  $('registry-live_assist_asr').innerHTML = renderRegistryRows('live_assist_asr', liveAssistAsr);
+  _registryCache.live_assist_asr = liveAssistAsr;
+  $('registry-live_assist_asr').innerHTML = renderRegistryCards('live_assist_asr', liveAssistAsr);
   const cleanup = await pywebview.api.list_registry('cleanup');
-  $('registry-cleanup').innerHTML = renderRegistryRows('cleanup', cleanup);
+  _registryCache.cleanup = cleanup;
+  $('registry-cleanup').innerHTML = renderRegistryCards('cleanup', cleanup);
 }
 
 async function activateRegistry(stage, id) {
@@ -2546,12 +2714,47 @@ async function activateRegistry(stage, id) {
 
 async function deleteRegistry(stage, id) {
   await pywebview.api.delete_registry(id);
+  if (_editingRegistryId[stage] === id) cancelRegistryEdit(stage);
   loadRegistry();
 }
 
 async function useLocalNemotronForLiveAssist() {
   await pywebview.api.use_local_nemotron_for_live_assist();
   loadRegistry();
+}
+
+function editRegistryRow(stage, id) {
+  const a = _registryCache[stage].find(x => x.id === id);
+  if (!a) return;
+  _editingRegistryId[stage] = id;
+  $(`${stage}-name`).value = a.name;
+  $(`${stage}-provider`).value = a.provider;
+  $(`${stage}-base-url`).value = a.base_url || '';
+  $(`${stage}-model-id`).value = a.model_id;
+  const keyInput = $(`${stage}-api-key`);
+  keyInput.value = '';
+  if (a.api_key_ref) {
+    keyInput.dataset.origPlaceholder = keyInput.dataset.origPlaceholder || keyInput.placeholder;
+    keyInput.placeholder = t('registry.key_unchanged');
+  }
+  $(`${stage}-form-title`).innerHTML = t('registry.edit_title');
+  $(`${stage}-form-submit`).innerHTML = t('registry.save');
+  $(`${stage}-form-cancel`).classList.remove('hidden');
+  $(`${stage}-name`).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $(`${stage}-name`).focus();
+}
+
+function cancelRegistryEdit(stage) {
+  _editingRegistryId[stage] = null;
+  $(`${stage}-name`).value = ''; $(`${stage}-provider`).value = ''; $(`${stage}-base-url`).value = '';
+  $(`${stage}-model-id`).value = '';
+  const keyInput = $(`${stage}-api-key`);
+  keyInput.value = '';
+  if (keyInput.dataset.origPlaceholder) keyInput.placeholder = keyInput.dataset.origPlaceholder;
+  $(`${stage}-form-title`).innerHTML = t('registry.new_title');
+  $(`${stage}-form-submit`).innerHTML = t('registry.test_save');
+  $(`${stage}-form-cancel`).classList.add('hidden');
+  $(`${stage}-test-result`).innerHTML = '';
 }
 
 async function testAndSaveRegistry(stage) {
@@ -2574,13 +2777,22 @@ async function testAndSaveRegistry(stage) {
     resultEl.innerHTML = `<span style="color:var(--danger)">Test failed, nothing saved: ${escapeHtml(test.error)}</span>`;
     return;
   }
+  const editingId = _editingRegistryId[stage];
+  const existing = editingId ? _registryCache[stage].find(x => x.id === editingId) : null;
   await pywebview.api.upsert_registry({
-    id: null, stage, name, provider, base_url: baseUrl, model_id: modelId, is_active: true,
+    id: editingId || null, stage, name, provider, base_url: baseUrl, model_id: modelId,
+    is_active: existing ? existing.is_active : true,
+    api_key_ref: existing ? existing.api_key_ref : null,
   }, apiKey);
-  resultEl.innerHTML = '<span style="color:var(--success)">Saved and activated.</span>';
-  $(`${stage}-name`).value = ''; $(`${stage}-provider`).value = ''; $(`${stage}-base-url`).value = '';
-  $(`${stage}-model-id`).value = ''; $(`${stage}-api-key`).value = '';
+  const savedMsg = editingId ? t('registry.saved') : t('registry.saved_activated');
+  cancelRegistryEdit(stage);
+  resultEl.innerHTML = `<span style="color:var(--success)">${savedMsg}</span>`;
   loadRegistry();
+}
+
+function setSettingsTab(view) {
+  document.querySelectorAll('#tab-settings .insights-subtab').forEach(el => el.classList.toggle('active', el.dataset.view === view));
+  ['shortcuts', 'dictation', 'liveassist', 'privacy'].forEach(v => $(`settings-view-${v}`).classList.toggle('hidden', v !== view));
 }
 
 async function loadSettings() {

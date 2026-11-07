@@ -38,6 +38,7 @@ from talkflow.features.command_mode.engine import CommandModeEngine
 from talkflow.features.liveassist import assistants as liveassist_assistants
 from talkflow.features.liveassist.batch_asr import TwoSourceBatchAsrAdapter
 from talkflow.features.liveassist.deepgram_asr import TwoSourceDeepgramAsrAdapter
+from talkflow.features.liveassist.gemini_live_asr import TwoSourceGeminiLiveAsrAdapter
 from talkflow.features.liveassist.multi_stream_asr import MultiStreamAsrAdapter
 from talkflow.features.liveassist.realtime_asr import TwoSourceRealtimeAsrAdapter
 from talkflow.features.liveassist.whisperlivekit_asr import TwoSourceWhisperLiveKitAdapter
@@ -532,6 +533,22 @@ def main() -> None:
                 raise RuntimeError("live_assist_asr provider is deepgram but no API key is stored")
             return TwoSourceDeepgramAsrAdapter(
                 api_key=asr_api_key, model=asr_assignment.model_id or "nova-3",
+            )
+        if asr_assignment.provider == "gemini-live":
+            # True streaming via Google's Gemini Live API (Live Transcribe
+            # feature) - see gemini_live_asr.py's docstring for exactly
+            # which protocol details are confirmed from Google's own docs
+            # vs inferred from the standard Gemini Live message shape, and
+            # for what's still UNTESTED (real-world latency - the whole
+            # reason this needs live measurement before anyone trusts it,
+            # same lesson as Deepgram's documented-sub-300ms-but-measured-
+            # 1.4-3s surprise).
+            asr_api_key = (secret_store.get_api_key(asr_assignment.api_key_ref)
+                           if asr_assignment.api_key_ref else None)
+            if not asr_api_key:
+                raise RuntimeError("live_assist_asr provider is gemini-live but no API key is stored")
+            return TwoSourceGeminiLiveAsrAdapter(
+                api_key=asr_api_key, model=asr_assignment.model_id or "gemini-3.5-transcribe-live",
             )
         if asr_assignment.provider == "whisperlivekit":
             # Self-hosted faster-whisper streaming server on the LAN (LXC

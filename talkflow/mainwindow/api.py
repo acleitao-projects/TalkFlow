@@ -385,6 +385,11 @@ class Api:
                     adapter = TwoSourceDeepgramAsrAdapter(api_key=api_key, model=model_id or "nova-3")
                     adapter.start_source("test", ["en"])
                     adapter.close()
+                elif provider == "gemini-live":
+                    from talkflow.features.liveassist.gemini_live_asr import TwoSourceGeminiLiveAsrAdapter
+                    adapter = TwoSourceGeminiLiveAsrAdapter(api_key=api_key, model=model_id or "gemini-3.5-transcribe-live")
+                    adapter.start_source("test", ["en"])
+                    adapter.close()
                 elif provider == "whisperlivekit":
                     from talkflow.features.liveassist.whisperlivekit_asr import TwoSourceWhisperLiveKitAdapter
                     adapter = TwoSourceWhisperLiveKitAdapter(base_url=base_url)
