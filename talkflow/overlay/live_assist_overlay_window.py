@@ -96,7 +96,14 @@ _SUGGESTION_ACCENT = (250, 204, 21)
 
 def _palette(ui_theme: str, opacity_pct: int) -> dict:
     """Pure color-lookup, kept outside the win32 class so it's unit-testable
-    without a real display."""
+    without a real display.
+
+    Dark-mode values are the exact :root[data-theme="dark"] CSS variables
+    from mainwindow/web/index.html (--card/--border/--text/--text-secondary)
+    - previously this panel had its own near-black/pure-white dark palette
+    that didn't match the main window's actual (warmer, more muted) dark
+    theme at all, so a user with the main window in dark mode would see two
+    visibly different "dark mode"s."""
     opacity_pct = max(15, min(100, opacity_pct))
     alpha = round(opacity_pct / 100 * 255)
     if ui_theme == "light":
@@ -109,12 +116,12 @@ def _palette(ui_theme: str, opacity_pct: int) -> dict:
             "bubble_them_text": (24, 24, 27, 255),
         }
     return {
-        "panel_fill": (13, 13, 16, alpha),
-        "panel_edge": (255, 255, 255, 60),
-        "text": (255, 255, 255, 255),
-        "text_dim": (255, 255, 255, 140),
-        "bubble_them_fill": (40, 40, 46, 255),
-        "bubble_them_text": (255, 255, 255, 255),
+        "panel_fill": (42, 40, 33, alpha),  # --card: #2a2821
+        "panel_edge": (58, 55, 41, 255),  # --border: #3a3729
+        "text": (239, 236, 228, 255),  # --text: #efece4
+        "text_dim": (168, 164, 150, 255),  # --text-secondary: #a8a496
+        "bubble_them_fill": (58, 55, 41, 255),  # --border: #3a3729
+        "bubble_them_text": (239, 236, 228, 255),  # --text: #efece4
     }
 
 
