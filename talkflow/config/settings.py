@@ -102,6 +102,18 @@ class Settings:
     live_assist_bubble_theme: bool = False
     # Panel background opacity, 15-100 (percent). Lower = more see-through.
     live_assist_panel_opacity: int = 92
+    # How long (minutes) a Gemini Live connection runs before this app
+    # proactively replaces it with a freshly-warmed one - see
+    # gemini_live_asr.py's TwoSourceGeminiLiveAsrAdapter docstring for why:
+    # the connection has a confirmed ~10-minute hard lifetime with no
+    # documented minimum warning before it's force-closed, so waiting for
+    # that warning and reconnecting reactively risks too little notice.
+    # Only applies when gemini-live is the active live_assist_asr provider.
+    # Default leaves 2 minutes of margin; lower it if real long sessions
+    # ever show the hard limit being hit anyway, raise it to swap less
+    # often (fewer brief "fresh connection" warm-up gaps) if 2 minutes of
+    # margin proves more than needed in practice.
+    live_assist_gemini_hotswap_minutes: int = 8
     # LA-08: which live_assist_assistants row the suggestion engine (LA-09)
     # applies. None means "use the builtin General Assistant" - resolved at
     # call time (features/liveassist/assistants.py), not cached here, so a

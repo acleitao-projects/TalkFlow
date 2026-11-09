@@ -90,10 +90,35 @@ didn't show a literal server-message example):
   on its own regardless of what we send - continuous audio is being sent
   throughout per the above, so this is a different risk than Deepgram's
   idle-timeout one, not yet observed in practice.
+- CONFIRMED LIVE: `inputTranscription` is CUMULATIVE for an ongoing turn,
+  not a delta - and the orchestrator's own local VAD boundary (300-600ms
+  pause) fires finalize_source() far more often than Gemini's own
+  server-side turn boundary does during a long, mostly-uninterrupted
+  utterance. Seen directly in real logs: a final arriving a few seconds
+  after an earlier one contained that ENTIRE earlier text again plus new
+  words - sometimes with minor revision right at the seam (e.g. a period
+  becoming a comma as more audio arrived), so it isn't even a byte-exact
+  prefix extension every time. The first version of this adapter both (a)
+  wrongly re-appended each already-cumulative event onto its own buffer,
+  compounding the duplication, and (b) never tracked what had already been
+  handed to the orchestrator, so every local VAD boundary during one long
+  turn re-sent the whole thing-so-far as a brand "final" utterance - this
+  is what showed up as repeated/runaway text in the bubble UI (the bubble
+  merge logic just concatenates consecutive same-speaker finals, so
+  already-duplicated ASR output got doubly concatenated on render; the fix
+  belongs here, not in the overlay). Fixed by (1) REPLACING
+  `_latest_final` on each final event instead of appending, and (2)
+  `commit_and_wait()` diffing the new cumulative text against
+  `_last_committed_final` (word-level longest-common-match via difflib,
+  not a strict prefix check, specifically to tolerate that seam revision)
+  and returning only the genuinely new tail. A `voiceActivity.
+  ACTIVITY_START` event resets the baseline cleanly when Gemini itself
+  signals a new turn, independent of the diff heuristic.
 """
 from __future__ import annotations
 
 import base64
+import difflib
 import json
 import logging
 import threading
@@ -115,6 +140,29 @@ _CONNECT_TIMEOUT_S = 10.0
 _FINALIZE_TIMEOUT_S = 0.5
 
 
+def _delta_text(already_committed: str, cumulative: str) -> str:
+    """Returns the genuinely new tail of `cumulative` beyond whatever was
+    already handed to the orchestrator (`already_committed`) - see the
+    module docstring's CONFIRMED LIVE entry on why this exists: Gemini's
+    `inputTranscription` for an ongoing turn is cumulative, not a delta,
+    and can slightly revise already-finalized wording right at the seam
+    (not just append to it), so a strict substring/prefix check isn't
+    reliable. Word-level longest-common-match tolerates that: it finds the
+    biggest contiguous run of words the two texts agree on and returns
+    whatever comes after it in `cumulative` - a few words right at a
+    revised seam can occasionally still repeat, but the dominant failure
+    mode (the whole turn-so-far re-appearing as a "new" final) is gone."""
+    if not already_committed:
+        return cumulative
+    old_words = already_committed.split()
+    new_words = cumulative.split()
+    matcher = difflib.SequenceMatcher(None, old_words, new_words, autojunk=False)
+    match = matcher.find_longest_match(0, len(old_words), 0, len(new_words))
+    if match.size == 0:
+        return cumulative  # no real overlap - treat as an entirely new turn
+    return " ".join(new_words[match.b + match.size:])
+
+
 class _SourceConnection:
     """One persistent WebSocket for one source_id ("me"/"they")."""
 
@@ -133,6 +181,12 @@ class _SourceConnection:
         self._latest_partial = ""
         self._last_returned_partial = ""
         self._latest_final = ""
+        # What's already been handed back via commit_and_wait() for the
+        # CURRENT ongoing turn - see _delta_text()'s docstring for why this
+        # is needed (Gemini's final text is cumulative, not a delta).
+        # Reset on a real ACTIVITY_START, so a genuinely new turn doesn't
+        # get diffed against the previous one's tail.
+        self._last_committed_final = ""
         self._final_seen = threading.Event()
         # Must be set before the socket thread starts - _on_open (called
         # from that thread, as soon as the connection opens) builds the
@@ -179,8 +233,17 @@ class _SourceConnection:
         if "goAway" in event:
             time_left = (event.get("goAway") or {}).get("timeLeft")
             logger.warning("Live Assist Gemini Live ASR [%s]: server sent GoAway, timeLeft=%s "
-                            "- connection will close soon, no reconnect is attempted",
-                            self._source_id, time_left)
+                            "- the scheduled hot-swap (see TwoSourceGeminiLiveAsrAdapter) should "
+                            "already be ahead of this in normal use", self._source_id, time_left)
+            return
+        activity = event.get("voiceActivity")
+        if activity:
+            if activity.get("type") == "ACTIVITY_START":
+                # A genuinely new turn, per Gemini itself - the cumulative
+                # final text it sends from here on is for THIS turn, so the
+                # dedup baseline must restart here too (see _delta_text()).
+                with self._lock:
+                    self._last_committed_final = ""
             return
         content = event.get("serverContent")
         if not content:
@@ -195,7 +258,12 @@ class _SourceConnection:
                             self._source_id, elapsed_ms)
                 self._utterance_audio_started_at = None
             with self._lock:
-                self._latest_final = (f"{self._latest_final} {text}".strip() if self._latest_final else text)
+                # REPLACE, not append - `text` is already the cumulative
+                # text for the whole ongoing turn (see _delta_text()'s
+                # docstring). Appending it onto itself was the other half
+                # of the duplication bug: each new cumulative event was
+                # being glued onto the previous one instead of replacing it.
+                self._latest_final = text
                 self._latest_partial = ""
                 self._last_returned_partial = ""
             self._final_seen.set()
@@ -246,10 +314,19 @@ class _SourceConnection:
         # speech_final usually beating the local VAD boundary.
         self._final_seen.wait(timeout=_FINALIZE_TIMEOUT_S)
         with self._lock:
-            text = self._latest_final.strip()
-            if not text and self._latest_partial.strip():
+            cumulative = self._latest_final.strip()
+            if not cumulative and self._latest_partial.strip():
                 # Nothing finalized in time - don't lose what we have.
-                text = self._latest_partial.strip()
+                cumulative = self._latest_partial.strip()
+            # `cumulative` covers this WHOLE ongoing turn, not just what's
+            # new since the last commit (see _delta_text()'s docstring) -
+            # every caller of this adapter treats whatever is returned here
+            # as new, permanent final text, so only the genuinely new tail
+            # must go out, and the baseline must advance to match, or the
+            # next commit on this same turn would re-send it all again.
+            text = _delta_text(self._last_committed_final, cumulative) if cumulative else ""
+            if cumulative:
+                self._last_committed_final = cumulative
             self._latest_final = ""
             self._latest_partial = ""
             self._last_returned_partial = ""
@@ -264,15 +341,66 @@ class _SourceConnection:
 
 
 class TwoSourceGeminiLiveAsrAdapter:
-    def __init__(self, api_key: str, model: str = "gemini-3.5-transcribe-live"):
+    """hotswap_interval_s: proactively replace each source's connection with
+    a freshly-warmed one after this long, well ahead of Gemini's own
+    ~10-minute connection lifetime (see the module docstring's GoAway
+    entry) - that limit is confirmed real but its warning (`timeLeft`) has
+    no documented minimum, so waiting for GoAway and reconnecting reactively
+    risks too little notice to warm a replacement in time. The swap itself
+    only happens inside finalize_source(), right after commit_and_wait()
+    cleanly closes out whatever was pending on the OLD connection - never
+    mid-utterance - so no audio or in-progress text is lost: everything the
+    old connection had is already returned normally via that same call,
+    and the new connection only starts receiving audio from the very next
+    send_audio(). Default of 8 minutes leaves 2 minutes of margin under the
+    documented ~10-minute limit for the next natural VAD boundary (typically
+    well under a second away during real speech) to actually trigger the
+    swap - configurable since that margin may need adjusting once this is
+    observed over real long sessions."""
+
+    def __init__(self, api_key: str, model: str = "gemini-3.5-transcribe-live", hotswap_interval_s: float = 480.0):
         self._api_key = api_key
         self._model = model
+        self._hotswap_interval_s = hotswap_interval_s
         self._connections: dict[str, _SourceConnection] = {}
+        self._connection_started_at: dict[str, float] = {}
+        self._allowed_languages: dict[str, list[str]] = {}
+        self._warm_connections: dict[str, _SourceConnection] = {}
+        self._warming: set[str] = set()  # source_ids with a warm-up thread currently in flight
+        self._lock = threading.Lock()
 
     def start_source(self, source_id: str, allowed_languages: list[str]) -> None:
         if source_id not in self._connections:
             self._connections[source_id] = _SourceConnection(
                 self._api_key, self._model, allowed_languages, source_id=source_id)
+            self._connection_started_at[source_id] = time.monotonic()
+            self._allowed_languages[source_id] = allowed_languages
+
+    def _maybe_start_warming_replacement(self, source_id: str) -> None:
+        with self._lock:
+            if source_id in self._warm_connections or source_id in self._warming:
+                return  # already warm and waiting, or a warm-up is already in flight
+            started_at = self._connection_started_at.get(source_id)
+            if started_at is None or time.monotonic() - started_at < self._hotswap_interval_s:
+                return
+            self._warming.add(source_id)
+
+        def _warm() -> None:
+            try:
+                conn = _SourceConnection(
+                    self._api_key, self._model, self._allowed_languages[source_id], source_id=source_id)
+                with self._lock:
+                    self._warm_connections[source_id] = conn
+                logger.info("Live Assist Gemini Live ASR [%s]: hot-swap replacement warmed up and ready",
+                            source_id)
+            except Exception:
+                logger.exception("Live Assist Gemini Live ASR [%s]: hot-swap warm-up failed - will retry "
+                                  "on the next check", source_id)
+            finally:
+                with self._lock:
+                    self._warming.discard(source_id)
+
+        threading.Thread(target=_warm, name=f"gemini-hotswap-{source_id}", daemon=True).start()
 
     def feed_source_chunk(self, source_id: str, pcm: bytes) -> PartialResult | None:
         # No noise gate here - see the module docstring's "CONFIRMED LIVE"
@@ -290,6 +418,7 @@ class TwoSourceGeminiLiveAsrAdapter:
         conn = self._connections.get(source_id)
         if conn is None:
             return None
+        self._maybe_start_warming_replacement(source_id)
         conn.send_audio(pcm)
         text = conn.take_partial()
         return PartialResult(text=text, detected_language=None) if text else None
@@ -298,9 +427,31 @@ class TwoSourceGeminiLiveAsrAdapter:
         conn = self._connections.get(source_id)
         if conn is None:
             return FinalResult(text="", detected_language=None, detected_language_confidence=None)
-        return FinalResult(text=conn.commit_and_wait(), detected_language=None, detected_language_confidence=None)
+        text = conn.commit_and_wait()
+        # Safe point to hot-swap: `conn` has just cleanly finished whatever
+        # utterance was pending (returned above, in `text`), so nothing is
+        # mid-word. If a warmed replacement is ready, switch to it now -
+        # every send_audio() from here on goes to the new connection, and
+        # the old one is closed only after the handoff.
+        with self._lock:
+            warm = self._warm_connections.pop(source_id, None)
+            if warm is not None:
+                old = self._connections[source_id]
+                self._connections[source_id] = warm
+                self._connection_started_at[source_id] = time.monotonic()
+        if warm is not None:
+            old.close()
+            logger.info("Live Assist Gemini Live ASR [%s]: hot-swapped to a fresh connection "
+                        "ahead of the ~10min limit", source_id)
+        return FinalResult(text=text, detected_language=None, detected_language_confidence=None)
 
     def close(self) -> None:
         for conn in self._connections.values():
             conn.close()
+        for conn in self._warm_connections.values():
+            conn.close()
         self._connections.clear()
+        self._connection_started_at.clear()
+        self._allowed_languages.clear()
+        self._warm_connections.clear()
+        self._warming.clear()

@@ -596,6 +596,17 @@
           </div>
         </div>
 
+        <div class="insights-row" style="grid-template-columns:1fr">
+          <div class="insight-card">
+            <div class="insight-big" id="ins-meetings-count">0</div>
+            <div class="insight-label" data-i18n="insights.meetings">Meetings</div>
+            <div class="insight-foot" id="ins-meetings-minutes">0 min</div>
+            <div class="insight-divider"></div>
+            <div class="dict-growth-row"><i class="ti ti-microphone"></i><span id="ins-meeting-words-me">0</span> <span data-i18n="insights.meeting_words_me">words from you</span></div>
+            <div class="dict-growth-row"><i class="ti ti-users"></i><span id="ins-meeting-words-they">0</span> <span data-i18n="insights.meeting_words_they">words from others</span></div>
+          </div>
+        </div>
+
         <div class="insights-row insights-row-2">
           <div class="insight-card">
             <div class="insight-label" data-i18n="insights.desktop_usage">Desktop usage</div>
@@ -1055,6 +1066,11 @@
           </div>
           <div class="hotkey-row-sub mt-1" data-i18n="settings.liveassist_opacity_sub">Lower = more see-through. Applies immediately.</div>
         </label>
+        <label class="block">
+          <div class="font-medium mb-1" data-i18n="settings.liveassist_gemini_hotswap_label">Gemini Live: connection hot-swap interval (minutes)</div>
+          <input type="number" id="s-liveassist-gemini-hotswap" min="3" max="9" step="1" class="w-full px-3 py-2" />
+          <div class="hotkey-row-sub mt-1" data-i18n="settings.liveassist_gemini_hotswap_sub">Gemini Live connections have a confirmed ~10 minute hard limit, so this app proactively opens and warms up a replacement connection and switches over before that - only matters if "gemini-live" is your active Live Assist ASR provider. Keep below 10 for real safety margin. Takes effect on the next Live Assist session.</div>
+        </label>
         <button onclick="saveSettings()" class="btn btn-primary" data-i18n="settings.save">Save</button>
       </div>
       </div>
@@ -1166,6 +1182,9 @@ const TRANSLATIONS = {
     'insights.longest': 'Longest: {n}',
     'insights.no_apps': 'No app usage recorded yet.',
     'insights.no_languages': 'No dictations recorded yet.',
+    'insights.meetings': 'Meetings',
+    'insights.meeting_words_me': 'words from you',
+    'insights.meeting_words_they': 'words from others',
     'style.cat_personal': 'Personal messages',
     'style.cat_work': 'Work messages',
     'style.cat_email': 'Email',
@@ -1297,6 +1316,8 @@ const TRANSLATIONS = {
     'settings.liveassist_bubble_sub': "Shows the transcript panel as iMessage-style chat bubbles instead of plain text - follows this app's own light/dark setting. Applies immediately.",
     'settings.liveassist_opacity_label': 'Live Assist: panel transparency',
     'settings.liveassist_opacity_sub': 'Lower = more see-through. Applies immediately.',
+    'settings.liveassist_gemini_hotswap_label': 'Gemini Live: connection hot-swap interval (minutes)',
+    'settings.liveassist_gemini_hotswap_sub': 'Gemini Live connections have a confirmed ~10 minute hard limit, so this app proactively opens and warms up a replacement connection and switches over before that - only matters if "gemini-live" is your active Live Assist ASR provider. Keep below 10 for real safety margin. Takes effect on the next Live Assist session.',
   },
   'pt-BR': {
     'nav.dictation': 'Ditado', 'nav.history': 'Histórico', 'nav.insights': 'Estatísticas',
@@ -1380,6 +1401,9 @@ const TRANSLATIONS = {
     'insights.more': 'Mais',
     'insights.language_breakdown': 'Idiomas usados',
     'insights.longest': 'Recorde: {n}',
+    'insights.meetings': 'Reuniões',
+    'insights.meeting_words_me': 'palavras suas',
+    'insights.meeting_words_they': 'palavras de outros',
     'insights.no_apps': 'Nenhum uso de app registrado ainda.',
     'insights.no_languages': 'Nenhum ditado registrado ainda.',
     'style.cat_personal': 'Mensagens pessoais',
@@ -1513,6 +1537,8 @@ const TRANSLATIONS = {
     'settings.liveassist_bubble_sub': 'Mostra o painel de transcrição como bolhas de chat estilo iMessage em vez de texto simples - segue o tema claro/escuro do próprio app. Aplica-se imediatamente.',
     'settings.liveassist_opacity_label': 'Live Assist: transparência do painel',
     'settings.liveassist_opacity_sub': 'Menor = mais transparente. Aplica-se imediatamente.',
+    'settings.liveassist_gemini_hotswap_label': 'Gemini Live: intervalo de troca de conexão (minutos)',
+    'settings.liveassist_gemini_hotswap_sub': 'Conexões do Gemini Live têm um limite confirmado de ~10 minutos, então este app abre e aquece proativamente uma conexão substituta e troca antes disso - só importa se "gemini-live" for seu provedor ativo de ASR do Live Assist. Mantenha abaixo de 10 para uma margem de segurança real. Vale a partir da próxima sessão do Live Assist.',
   },
 };
 
@@ -2079,6 +2105,19 @@ async function loadInsights() {
   $('ins-streak-label').textContent = streakLabel(s.current_streak);
   $('ins-streak-longest').textContent = t('insights.longest').replace('{n}', s.longest_streak);
   renderInsightsCalendar(s.daily_counts);
+
+  $('ins-meetings-count').textContent = s.total_meetings.toLocaleString();
+  $('ins-meetings-minutes').textContent = formatMeetingMinutes(s.meeting_minutes);
+  $('ins-meeting-words-me').textContent = s.meeting_words_me.toLocaleString();
+  $('ins-meeting-words-they').textContent = s.meeting_words_they.toLocaleString();
+}
+
+function formatMeetingMinutes(totalMinutes) {
+  const lang = $('tb-lang').dataset.lang || 'en';
+  const mins = Math.round(totalMinutes);
+  if (mins < 60) return lang === 'pt-BR' ? `${mins} min` : `${mins} min`;
+  const h = Math.floor(mins / 60), rem = mins % 60;
+  return lang === 'pt-BR' ? `${h}h ${rem}min` : `${h}h ${rem}m`;
 }
 
 const MONTH_NAMES = {
@@ -2810,6 +2849,7 @@ async function loadSettings() {
   $('s-liveassist-bubble').checked = s.live_assist_bubble_theme;
   $('s-liveassist-opacity').value = s.live_assist_panel_opacity;
   $('s-liveassist-opacity-val').textContent = s.live_assist_panel_opacity + '%';
+  $('s-liveassist-gemini-hotswap').value = s.live_assist_gemini_hotswap_minutes;
 
   const devices = await pywebview.api.list_input_devices();
   const sel = $('s-input-device');
@@ -2851,6 +2891,7 @@ async function saveSettings() {
     exclude_main_window_from_capture: $('s-hide-from-capture').checked,
     live_assist_bubble_theme: $('s-liveassist-bubble').checked,
     live_assist_panel_opacity: parseInt($('s-liveassist-opacity').value, 10),
+    live_assist_gemini_hotswap_minutes: parseInt($('s-liveassist-gemini-hotswap').value, 10) || 8,
   });
   loadSettings();
 }

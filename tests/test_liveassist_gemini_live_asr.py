@@ -4,6 +4,7 @@ setupComplete handshake and the serverContent transcription state machine
 latency/accuracy still needs a real Gemini API key and is only verified by
 live use, same as the other Live Assist ASR adapters in this project."""
 import json
+import time
 
 import pytest
 import websocket
@@ -109,16 +110,64 @@ def test_interim_transcription_updates_the_partial_text(monkeypatch):
     assert conn.take_partial() is None  # unchanged text isn't returned twice
 
 
-def test_final_transcriptions_accumulate_and_commit_and_wait_joins_them(monkeypatch):
+def test_a_single_cumulative_final_is_returned_whole(monkeypatch):
+    """Gemini's inputTranscription for a turn is cumulative, not a stream
+    of separate pieces to join (see the module docstring's CONFIRMED LIVE
+    entry) - a single final event's text is returned as-is."""
     monkeypatch.setattr(gemini_live_asr_module, "_FINALIZE_TIMEOUT_S", 0.2)
     _patch_fake_ws(monkeypatch, [
-        {"serverContent": {"inputTranscription": {"text": "hello"}}},
-        {"serverContent": {"inputTranscription": {"text": "world"}}},
+        {"serverContent": {"inputTranscription": {"text": "hello world"}}},
     ])
     conn = _SourceConnection(api_key="k", model="gemini-3.5-transcribe-live", allowed_languages=["en"])
     assert conn.commit_and_wait() == "hello world"
     # State resets after a commit - a second call with nothing new returns empty.
     assert conn.commit_and_wait() == ""
+
+
+def test_regression_cumulative_finals_across_multiple_commits_do_not_duplicate(monkeypatch):
+    """Regression test for a real bug found live: the orchestrator's own
+    local VAD boundary fires finalize_source() far more often than
+    Gemini's server-side turn boundary during one long, mostly-
+    uninterrupted utterance. Each inputTranscription event covers the
+    WHOLE turn so far, not just what's new - naively returning it every
+    time a commit happens re-sent dozens of already-seen words as "new"
+    final text on every boundary, which showed up as runaway repeated
+    text in the Live Assist bubble UI. This simulates exactly that: two
+    commits during one ongoing turn, with the server's text having grown
+    (cumulatively, as real Gemini responses do) between them."""
+    monkeypatch.setattr(gemini_live_asr_module, "_FINALIZE_TIMEOUT_S", 0.2)
+    _patch_fake_ws(monkeypatch, [])
+    conn = _SourceConnection(api_key="k", model="gemini-3.5-transcribe-live", allowed_languages=["en"])
+
+    conn._on_message(conn._ws, json.dumps({"serverContent": {"inputTranscription": {"text": "Vamos tentar"}}}))
+    assert conn.commit_and_wait() == "Vamos tentar"
+
+    # The server's NEXT final for the same ongoing turn includes everything
+    # already seen, plus new words - exactly the pattern observed live.
+    conn._on_message(conn._ws, json.dumps(
+        {"serverContent": {"inputTranscription": {"text": "Vamos tentar mais uma vez aqui"}}}))
+    assert conn.commit_and_wait() == "mais uma vez aqui"
+
+    conn._on_message(conn._ws, json.dumps(
+        {"serverContent": {"inputTranscription": {"text": "Vamos tentar mais uma vez aqui para testar"}}}))
+    assert conn.commit_and_wait() == "para testar"
+
+
+def test_activity_start_resets_the_dedup_baseline_for_a_new_turn(monkeypatch):
+    """A real ACTIVITY_START from Gemini means a genuinely new turn is
+    starting - the next final's cumulative text must NOT be diffed against
+    the previous (now-finished) turn's tail, or its first words would be
+    wrongly swallowed as "already seen"."""
+    monkeypatch.setattr(gemini_live_asr_module, "_FINALIZE_TIMEOUT_S", 0.2)
+    _patch_fake_ws(monkeypatch, [])
+    conn = _SourceConnection(api_key="k", model="gemini-3.5-transcribe-live", allowed_languages=["en"])
+
+    conn._on_message(conn._ws, json.dumps({"serverContent": {"inputTranscription": {"text": "first turn done"}}}))
+    assert conn.commit_and_wait() == "first turn done"
+
+    conn._on_message(conn._ws, json.dumps({"voiceActivity": {"type": "ACTIVITY_START"}}))
+    conn._on_message(conn._ws, json.dumps({"serverContent": {"inputTranscription": {"text": "second turn"}}}))
+    assert conn.commit_and_wait() == "second turn"
 
 
 def test_commit_and_wait_promotes_interim_text_when_nothing_finalized_in_time(monkeypatch):
@@ -148,6 +197,11 @@ def test_go_away_is_logged_and_does_not_affect_connection_state(monkeypatch):
     ])
     conn = _SourceConnection(api_key="k", model="gemini-3.5-transcribe-live", allowed_languages=["en"])
     assert conn._setup_complete.is_set()
+    # setupComplete fires before the scripted events after it finish
+    # processing on the background thread - wait for the real synchronization
+    # point (the same one commit_and_wait() itself relies on) instead of
+    # racing a bare attribute read against that thread.
+    assert conn._final_seen.wait(timeout=2)
     assert conn._latest_final == "still here"
 
 
@@ -200,3 +254,80 @@ def test_feed_source_chunk_sends_every_frame_unconditionally(monkeypatch):
     loud = np.full(480, 2000, dtype=np.int16).tobytes()
     adapter.feed_source_chunk("me", loud)
     assert sum("realtimeInput" in json.loads(d) for d, _o in conn._ws.sent) == 2
+
+
+def _wait_until(predicate, timeout=1.0, interval=0.02):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return predicate()
+
+
+def test_hotswap_does_not_warm_a_replacement_before_the_interval_elapses(monkeypatch):
+    _patch_fake_ws(monkeypatch, [])
+    adapter = TwoSourceGeminiLiveAsrAdapter(api_key="k", hotswap_interval_s=600.0)
+    adapter.start_source("me", ["en"])
+    adapter.feed_source_chunk("me", b"\x00\x00")
+    time.sleep(0.05)
+    assert "me" not in adapter._warm_connections
+    assert "me" not in adapter._warming
+
+
+def test_hotswap_warms_a_replacement_once_the_interval_elapses(monkeypatch):
+    _patch_fake_ws(monkeypatch, [])
+    adapter = TwoSourceGeminiLiveAsrAdapter(api_key="k", hotswap_interval_s=0.01)
+    adapter.start_source("me", ["en"])
+    time.sleep(0.02)
+    adapter.feed_source_chunk("me", b"\x00\x00")  # this call is what notices the interval elapsed
+    assert _wait_until(lambda: "me" in adapter._warm_connections)
+    assert adapter._warm_connections["me"] is not adapter._connections["me"]
+
+
+def test_hotswap_switches_at_the_next_finalize_without_losing_pending_text(monkeypatch):
+    """The core guarantee: the swap only happens inside finalize_source(),
+    right after commit_and_wait() has already cleanly returned whatever
+    was pending on the OLD connection - so nothing said before the swap is
+    lost, and everything said after goes to the NEW connection."""
+    monkeypatch.setattr(gemini_live_asr_module, "_FINALIZE_TIMEOUT_S", 0.2)
+    _patch_fake_ws(monkeypatch, [
+        {"serverContent": {"inputTranscription": {"text": "pending before swap"}}},
+    ])
+    adapter = TwoSourceGeminiLiveAsrAdapter(api_key="k", hotswap_interval_s=0.01)
+    adapter.start_source("me", ["en"])
+    old_conn = adapter._connections["me"]
+    time.sleep(0.02)
+    adapter.feed_source_chunk("me", b"\x00\x00")  # triggers warming
+    assert _wait_until(lambda: "me" in adapter._warm_connections)
+    warm_conn = adapter._warm_connections["me"]
+
+    result = adapter.finalize_source("me")
+    assert result.text == "pending before swap"  # nothing lost from the old connection
+    assert adapter._connections["me"] is warm_conn  # swapped
+    assert "me" not in adapter._warm_connections  # consumed, not swapped again next time
+    assert old_conn._ws.closed is True  # closed only after the handoff completed
+
+    old_sent_before = sum("realtimeInput" in json.loads(d) for d, _o in old_conn._ws.sent)
+    warm_sent_before = sum("realtimeInput" in json.loads(d) for d, _o in warm_conn._ws.sent)
+    adapter.feed_source_chunk("me", b"\x01\x02")
+    old_sent_after = sum("realtimeInput" in json.loads(d) for d, _o in old_conn._ws.sent)
+    warm_sent_after = sum("realtimeInput" in json.loads(d) for d, _o in warm_conn._ws.sent)
+    assert old_sent_after == old_sent_before  # the old (closed) connection gets nothing more
+    assert warm_sent_after == warm_sent_before + 1  # the new connection gets the new audio
+
+
+def test_hotswap_does_not_warm_twice_while_one_warm_up_is_already_in_flight(monkeypatch):
+    _patch_fake_ws(monkeypatch, [])
+    adapter = TwoSourceGeminiLiveAsrAdapter(api_key="k", hotswap_interval_s=0.01)
+    adapter.start_source("me", ["en"])
+    time.sleep(0.02)
+    adapter.feed_source_chunk("me", b"\x00\x00")
+    adapter.feed_source_chunk("me", b"\x00\x00")  # should not start a second warm-up thread
+    assert _wait_until(lambda: "me" in adapter._warm_connections)
+    # Only one replacement was ever created - re-checking after it's ready
+    # and already consumed-free must not spin up yet another one.
+    first_warm = adapter._warm_connections["me"]
+    adapter.feed_source_chunk("me", b"\x00\x00")
+    time.sleep(0.05)
+    assert adapter._warm_connections["me"] is first_warm

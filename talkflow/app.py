@@ -547,8 +547,18 @@ def main() -> None:
                            if asr_assignment.api_key_ref else None)
             if not asr_api_key:
                 raise RuntimeError("live_assist_asr provider is gemini-live but no API key is stored")
+            # Fresh read, not the outer `settings` closure, so a changed
+            # Settings-tab value takes effect on the next session without a
+            # restart - same reasoning as registry_store.get_active() above.
+            # Clamped defensively (not just by the Settings UI's min/max,
+            # which a hand-edited settings.json or an empty-field save
+            # could bypass) since this feeds a real connection timer - a
+            # bad value here breaks Live Assist, not just looks wrong.
+            raw_hotswap_minutes = Settings.load().live_assist_gemini_hotswap_minutes
+            hotswap_minutes = max(3, min(9, raw_hotswap_minutes or 8))
             return TwoSourceGeminiLiveAsrAdapter(
                 api_key=asr_api_key, model=asr_assignment.model_id or "gemini-3.5-transcribe-live",
+                hotswap_interval_s=hotswap_minutes * 60,
             )
         if asr_assignment.provider == "whisperlivekit":
             # Self-hosted faster-whisper streaming server on the LAN (LXC

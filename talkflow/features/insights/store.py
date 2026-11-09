@@ -57,6 +57,15 @@ class InsightsSummary:
     current_streak: int = 0
     longest_streak: int = 0
     daily_counts: dict = field(default_factory=dict)  # "YYYY-MM-DD" -> session count
+    # Live Assist ("meetings") rollup. Both speakers' words count toward
+    # total_words above (transcription is transcription), but never toward
+    # avg_wpm - that stays dictation-only, since meeting speech is a
+    # different, unpaced context and "they" is someone else's speaking rate,
+    # not the user's.
+    total_meetings: int = 0
+    meeting_minutes: float = 0.0
+    meeting_words_me: int = 0
+    meeting_words_they: int = 0
 
 
 def get_summary(days: int = 180) -> InsightsSummary:
@@ -65,6 +74,14 @@ def get_summary(days: int = 180) -> InsightsSummary:
         rows = conn.execute(
             "SELECT started_at, ended_at, cleaned_transcript, target_process_name, detected_language "
             "FROM dictation_sessions WHERE state='complete'"
+        ).fetchall()
+        meeting_rows = conn.execute(
+            "SELECT started_at, ended_at FROM live_assist_sessions WHERE state='ended'"
+        ).fetchall()
+        meeting_utterance_rows = conn.execute(
+            "SELECT lau.source, lau.text FROM live_assist_utterances lau "
+            "JOIN live_assist_sessions las ON las.id = lau.session_id "
+            "WHERE las.state='ended'"
         ).fetchall()
     finally:
         conn.close()
@@ -101,6 +118,27 @@ def get_summary(days: int = 180) -> InsightsSummary:
 
     avg_wpm = sum(wpm_samples) / len(wpm_samples) if wpm_samples else 0.0
 
+    meeting_words_me = 0
+    meeting_words_they = 0
+    for row in meeting_utterance_rows:
+        words = _word_count(row["text"])
+        if row["source"] == "me":
+            meeting_words_me += words
+        else:
+            meeting_words_they += words
+
+    meeting_minutes = 0.0
+    for row in meeting_rows:
+        started = _parse(row["started_at"])
+        ended = _parse(row["ended_at"])
+        if started and ended:
+            meeting_minutes += (ended - started).total_seconds() / 60
+
+    # Transcription is transcription: meeting speech (both speakers) counts
+    # toward the headline word total, same as dictation - just never into
+    # avg_wpm, computed above from dictation_sessions alone.
+    total_words += meeting_words_me + meeting_words_they
+
     total_app_sessions = sum(app_sessions.values()) or 1
     app_usage = [
         AppUsage(process_name=name, session_count=count, word_count=app_words[name],
@@ -132,6 +170,10 @@ def get_summary(days: int = 180) -> InsightsSummary:
         current_streak=current_streak,
         longest_streak=longest_streak,
         daily_counts=dict(daily_counts),
+        total_meetings=len(meeting_rows),
+        meeting_minutes=round(meeting_minutes, 1),
+        meeting_words_me=meeting_words_me,
+        meeting_words_they=meeting_words_they,
     )
 
 
