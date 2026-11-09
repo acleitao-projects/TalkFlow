@@ -21,13 +21,14 @@ A small pill sits at the bottom of your screen. Hover over it to start a dictati
 - **Transforms**: rewrite the selected text with one hotkey (Polish, Prompt Engineer, or up to 8 of your own).
 - **Command Mode**: speak an instruction to edit the selected text or search the web.
 - **Notetaker**: record a meeting (microphone and system audio) and get a transcript with a summary and action items.
+- **Live Assist**: a floating live transcript for calls and meetings — "me" and "they" in separate bubbles, transcribed in real time (local Nemotron or Gemini Live, your choice), with suggestions on demand. Meetings show up in Insights alongside dictation, since transcription is transcription either way.
 - **History**, a floating **Scratchpad**, and a **Model Registry** where each pipeline stage (speech recognition, cleanup) gets its own provider, model and API key.
 
 ## Screenshots
 
 | | |
 |---|---|
-| ![Insights](docs/screenshots/insights.png) **Insights**: words per minute, apps, streaks, all computed locally | ![Style](docs/screenshots/style.png) **Style**: a formality preset per kind of app, with live previews |
+| ![Insights](docs/screenshots/insights.png) **Insights**: words per minute, apps, streaks and meetings, all computed locally | ![Style](docs/screenshots/style.png) **Style**: a formality preset per kind of app, with live previews |
 | ![Dictionary](docs/screenshots/dictionary.png) **Dictionary**: terms added by hand or learned from your edits | ![Transforms](docs/screenshots/transforms.png) **Transforms**: rewrite selected text with a hotkey |
 | ![Model Registry](docs/screenshots/model-registry.png) **Model Registry**: choose the provider and model for each stage | |
 
